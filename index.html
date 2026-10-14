@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<title>Teste de código de barras</title>
+<title>Teste de leitura EAN</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#111827;font-family:Arial,Helvetica,sans-serif}.wrap{max-width:640px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #d8e0ea;border-radius:14px;padding:16px;margin-bottom:14px}h1{font-size:1.35rem;margin:0 0 8px}.muted{color:#5d6b82;line-height:1.45;font-size:.94rem}label{display:block;font-weight:bold;margin:14px 0 7px}input,select,button{font:inherit;width:100%;min-height:50px;border-radius:10px}input,select{border:1px solid #aab7c8;padding:10px;font-size:1.1rem;background:white;color:#111827}button{border:0;padding:12px;background:#155eef;color:white;font-weight:bold;margin-top:12px}.secondary{background:#e5eaf1;color:#111827}.codebox{text-align:center;background:white;border:2px solid #cbd5e1;border-radius:14px;padding:14px 8px;overflow:hidden}.barcode{display:block;width:100%;height:auto;max-height:190px}.digits{font-weight:bold;font-size:1.4rem;letter-spacing:.06em;overflow-wrap:anywhere;margin-top:8px}.status{padding:10px;border-radius:8px;background:#eef4ff;margin-top:12px;line-height:1.4;font-size:.92rem}.err{background:#fff0ee;color:#9a271b}.ok{background:#ecfdf3;color:#05603a}.full{display:none;position:fixed;z-index:10;inset:0;background:white;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom);align-items:center;justify-content:center;flex-direction:column}.full.show{display:flex}.full .barcode{max-height:52vh;width:100%;max-width:900px}.full .digits{font-size:clamp(1.5rem,6vw,3rem);text-align:center}.full button{max-width:420px;background:#111827}.small{font-size:.85rem}.offline-note{font-size:.88rem;color:#854d0e;background:#fffaeb;padding:10px;border-radius:8px}
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#111827;font-family:Arial,Helvetica,sans-serif}.wrap{max-width:640px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #d8e0ea;border-radius:14px;padding:16px;margin-bottom:14px}h1{font-size:1.35rem;margin:0 0 8px}.muted{color:#5d6b82;line-height:1.45;font-size:.94rem}label{display:block;font-weight:bold;margin:14px 0 7px}input,select,button{font:inherit;width:100%;min-height:50px;border-radius:10px}input,select{border:1px solid #aab7c8;padding:10px;font-size:1.1rem;background:white;color:#111827}button{border:0;padding:12px;background:#155eef;color:white;font-weight:bold;margin-top:12px}.codebox{text-align:center;background:white;border:2px solid #cbd5e1;border-radius:14px;padding:14px 8px;overflow:hidden}.barcode{display:block;width:100%;height:auto;max-height:190px}.digits{font-weight:bold;font-size:1.4rem;letter-spacing:.06em;overflow-wrap:anywhere;margin-top:8px}.status{padding:10px;border-radius:8px;background:#eef4ff;margin-top:12px;line-height:1.4;font-size:.92rem}.err{background:#fff0ee;color:#9a271b}.ok{background:#ecfdf3;color:#05603a}.full{display:none;position:fixed;z-index:10;inset:0;background:white;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom);align-items:center;justify-content:center;flex-direction:column}.full.show{display:flex}.full .barcode{max-height:52vh;width:100%;max-width:900px}.full .digits{font-size:clamp(1.5rem,6vw,3rem);text-align:center}.full button{max-width:420px;background:#111827}.small{font-size:.85rem}.offline-note{font-size:.88rem;color:#854d0e;background:#fffaeb;padding:10px;border-radius:8px}
 </style>
 </head>
 <body>
 <main class="wrap">
 <section class="card">
 <h1>Teste de leitura do código de barras</h1>
-<p class="muted">Esta página gera um código para testar se o consultor de preços do supermercado consegue ler o código exibido no celular.</p>
+<p class="muted">Teste se o consultor de preços consegue ler um código exibido na tela do celular.</p>
 <label for="ean">EAN / código do produto</label>
 <input id="ean" inputmode="numeric" autocomplete="off" value="7622202288937">
 <label for="format">Formato</label>
@@ -34,8 +34,8 @@
 </section>
 <section class="card">
 <button id="fullscreen">Abrir em tela cheia</button>
-<p class="muted small">Aumente o brilho do celular. Se não abrir tela cheia, o código continuará visível nesta página.</p>
-<div class="offline-note">O gerador precisa carregar uma biblioteca pela internet na primeira abertura. Se estiver sem conexão, conecte-se e recarregue a página.</div>
+<p class="muted small">Aumente o brilho do celular. Se a tela cheia não abrir, o código continuará visível nesta página.</p>
+<div class="offline-note">É necessária internet para carregar a biblioteca que gera os códigos de barras.</div>
 </section>
 </main>
 <div id="full" class="full">
@@ -48,24 +48,25 @@
 <script>
 (function(){
 const $=id=>document.getElementById(id), status=$('status');
-function fmtFor(v){if(/^\\d{13}$/.test(v))return 'EAN13';if(/^\\d{12}$/.test(v))return 'UPC';if(/^\\d{8}$/.test(v))return 'EAN8';return 'CODE128'}
+function fmtFor(v){if(/^\d{13}$/.test(v))return 'EAN13';if(/^\d{12}$/.test(v))return 'UPC';if(/^\d{8}$/.test(v))return 'EAN8';return 'CODE128'}
 function render(target,v,fmt,w,h){window.JsBarcode(target,v,{format:fmt,width:w,height:h,displayValue:false,margin:12,lineColor:'#000',background:'#fff'});}
 function make(){
  const v=$('ean').value.trim(), chosen=$('format').value;
- if(!v){status.className='status err';status.textContent='Digite um código.';return}
- if(chosen!=='CODE128'&&!/^\\d+$/.test(v)){status.className='status err';status.textContent='EAN/UPC deve conter apenas números.';return}
- if(typeof window.JsBarcode!=='function'){status.className='status err';status.textContent='O gerador não carregou. Verifique a internet, recarregue a página e tente novamente.';return}
+ if(!v){status.className='status err';status.textContent='Digite um código.';return false}
+ if(chosen!=='CODE128'&&!/^\d+$/.test(v)){status.className='status err';status.textContent='Para EAN/UPC, informe apenas números, sem espaços ou hífens.';return false}
+ if(typeof window.JsBarcode!=='function'){status.className='status err';status.textContent='O gerador não carregou. Verifique a internet, recarregue a página e tente novamente.';return false}
  const f=chosen==='auto'?fmtFor(v):chosen;
  try{
   render($('barcode'),v,f,2.4,100);render($('big'),v,f,3.3,145);
   $('digits').textContent=v;$('bigdigits').textContent=v;
   status.className='status ok';status.textContent='Código gerado ('+f+'). Agora teste no consultor de preços.';
- }catch(e){status.className='status err';status.textContent='Não foi possível gerar esse código nesse formato. Confira o número e o formato.';$('barcode').innerHTML='';$('big').innerHTML=''}
+  return true;
+ }catch(e){status.className='status err';status.textContent='Não foi possível gerar esse código nesse formato. Confira o número e o formato.';$('barcode').innerHTML='';$('big').innerHTML='';return false}
 }
 $('make').addEventListener('click',make);
 $('ean').addEventListener('keydown',e=>{if(e.key==='Enter')make()});
 $('format').addEventListener('change',make);
-$('fullscreen').addEventListener('click',()=>{make();if($('barcode').innerHTML){$('full').classList.add('show');if($('full').requestFullscreen)$('full').requestFullscreen().catch(()=>{});}});
+$('fullscreen').addEventListener('click',()=>{if(make()){$('full').classList.add('show');if($('full').requestFullscreen)$('full').requestFullscreen().catch(()=>{});}});
 function close(){ $('full').classList.remove('show');if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
 $('close').addEventListener('click',close);
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('full').classList.remove('show')});
