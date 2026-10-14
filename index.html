@@ -1,77 +1,264 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111827">
-<title>Teste de leitura EAN</title>
+<meta name="theme-color" content="#132238">
+<title>Pesquisa de Preços</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#111827;font-family:Arial,Helvetica,sans-serif}.wrap{max-width:640px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #d8e0ea;border-radius:14px;padding:16px;margin-bottom:14px}h1{font-size:1.35rem;margin:0 0 8px}.muted{color:#5d6b82;line-height:1.45;font-size:.94rem}label{display:block;font-weight:bold;margin:14px 0 7px}input,select,button{font:inherit;width:100%;min-height:50px;border-radius:10px}input,select{border:1px solid #aab7c8;padding:10px;font-size:1.1rem;background:white;color:#111827}button{border:0;padding:12px;background:#155eef;color:white;font-weight:bold;margin-top:12px}.codebox{text-align:center;background:white;border:2px solid #cbd5e1;border-radius:14px;padding:14px 8px;overflow:hidden}.barcode{display:block;width:100%;height:auto;max-height:190px}.digits{font-weight:bold;font-size:1.4rem;letter-spacing:.06em;overflow-wrap:anywhere;margin-top:8px}.status{padding:10px;border-radius:8px;background:#eef4ff;margin-top:12px;line-height:1.4;font-size:.92rem}.err{background:#fff0ee;color:#9a271b}.ok{background:#ecfdf3;color:#05603a}.full{display:none;position:fixed;z-index:10;inset:0;background:white;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom);align-items:center;justify-content:center;flex-direction:column}.full.show{display:flex}.full .barcode{max-height:52vh;width:100%;max-width:900px}.full .digits{font-size:clamp(1.5rem,6vw,3rem);text-align:center}.full button{max-width:420px;background:#111827}.small{font-size:.85rem}.offline-note{font-size:.88rem;color:#854d0e;background:#fffaeb;padding:10px;border-radius:8px}
+:root{--navy:#132238;--blue:#155eef;--pale:#eef4ff;--green:#067647;--red:#b42318;--border:#d6deea;--muted:#5d6b82}
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172033;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:var(--navy);color:white;padding:15px 16px;position:sticky;top:0;z-index:5}header .top{max-width:980px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:10px}header h1{font-size:1.15rem;margin:0}header small{opacity:.8}
+main{max-width:980px;margin:auto;padding:14px}.tabs{display:flex;gap:8px;overflow:auto;margin:0 0 14px}.tab{white-space:nowrap;width:auto;min-height:42px;margin:0;background:#e5eaf1;color:#172033;padding:9px 13px}.tab.active{background:var(--blue);color:white}
+.card{background:white;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #15233a08}
+h2{font-size:1.15rem;margin:0 0 12px}h3{font-size:1rem;margin:0 0 8px}
+label{display:block;font-size:.9rem;font-weight:700;margin:12px 0 6px}
+input,select,textarea,button{font:inherit}input[type=text],input[type=number],select,textarea,input[type=file]{width:100%;border:1px solid #b7c3d3;border-radius:10px;padding:11px 12px;min-height:46px;background:#fff;color:#172033}
+textarea{min-height:155px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
+button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight:750;background:var(--blue);color:white;cursor:pointer}button.secondary{background:#e7edf5;color:#172033}button.dark{background:var(--navy)}button.danger{background:#b42318}button:disabled{opacity:.45;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.muted{color:var(--muted);font-size:.91rem}.status{padding:10px 12px;border-radius:9px;background:var(--pale);margin-top:10px;font-size:.91rem;overflow-wrap:anywhere}.status.ok{background:#ecfdf3;color:#05603a}.status.err{background:#fff0ee;color:#9a271b}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.stat{background:#f5f7fb;border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:1.15rem}.stat span{font-size:.78rem;color:var(--muted)}
+.hidden{display:none!important}.progress{height:8px;border-radius:99px;background:#e5eaf1;overflow:hidden;margin:8px 0 14px}.progress span{display:block;height:100%;background:#12b76a;width:0}
+.product-name{font-size:1.1rem;font-weight:800;line-height:1.3;margin:8px 0 12px}.ean-label{font-size:.78rem;color:var(--muted);font-weight:800;letter-spacing:.08em}.ean-number{font-size:1.4rem;font-weight:850;letter-spacing:.04em;overflow-wrap:anywhere}.barcode-wrap{background:white;border:1px solid var(--border);border-radius:12px;padding:10px 4px;text-align:center;margin:10px 0}.barcode{display:block;width:100%;height:auto;max-height:155px}.price-label{font-size:.85rem;font-weight:800;margin:12px 0 6px}.price-input{font-size:1.6rem!important;font-weight:800;min-height:60px!important}.scan-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.scan-actions button{width:100%}
+.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:.88rem}th,td{padding:9px 8px;border-bottom:1px solid #e4e9f0;text-align:left;vertical-align:top}th{background:#f7f9fc;position:sticky;top:0}td.num,th.num{text-align:right;white-space:nowrap}.tag{display:inline-block;border-radius:99px;background:#e7edf5;padding:3px 8px;font-size:.78rem;font-weight:700}.tag.done{background:#dcfae6;color:#05603a}.tag.pending{background:#fff4cc;color:#854d0e}
+.fullscreen{position:fixed;inset:0;background:white;z-index:20;display:none;align-items:center;justify-content:center;flex-direction:column;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}.fullscreen.show{display:flex}.fullscreen .barcode{max-width:900px;max-height:52vh}.fullscreen .ean-number{font-size:clamp(1.7rem,6vw,3rem);text-align:center}.fullscreen button{width:min(100%,420px);margin-top:20px}
+@media(min-width:700px){.grid.two{grid-template-columns:1fr 1fr}.product-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}.product-layout .wide{grid-column:1/-1}}
 </style>
 </head>
 <body>
-<main class="wrap">
-<section class="card">
-<h1>Teste de leitura do código de barras</h1>
-<p class="muted">Teste se o consultor de preços consegue ler um código exibido na tela do celular.</p>
-<label for="ean">EAN / código do produto</label>
-<input id="ean" inputmode="numeric" autocomplete="off" value="7622202288937">
-<label for="format">Formato</label>
-<select id="format">
-<option value="auto">Detectar pelo tamanho</option>
-<option value="EAN13">EAN-13 (13 dígitos)</option>
-<option value="UPC">UPC-A (12 dígitos)</option>
-<option value="EAN8">EAN-8 (8 dígitos)</option>
-<option value="CODE128">Code 128 (outros códigos)</option>
-</select>
-<button id="make">Gerar código</button>
-<div id="status" class="status">Carregando gerador…</div>
+<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação</small></div><span id="headerCount">Sem lista</span></div></header>
+<main>
+<nav class="tabs" aria-label="Seções">
+<button class="tab active" data-tab="import">1. Lista CSV</button>
+<button class="tab" data-tab="collect">2. Coletar preços</button>
+<button class="tab" data-tab="compare">3. Comparativo</button>
+</nav>
+
+<section id="view-import">
+<div class="card">
+<h2>Importar lista semanal</h2>
+<p class="muted">Selecione o CSV ou copie e cole os dados. O formato do exemplo (separador ponto e vírgula, campos entre aspas) é aceito. A lista nova não apaga automaticamente os preços já salvos.</p>
+<label for="csvFile">Selecionar arquivo .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
+<label for="pasteCsv">Ou copie e cole os dados aqui</label><textarea id="pasteCsv" placeholder='"Código (SKU)";"Código de Barras";"Nome do Produto";"Unidade de Medida";"Valor de Venda"&#10;"399";"7622202288937";"BARRA DE CHOCOLATE...";"Unidade (Un)";"R$ 12,38"'></textarea>
+<div class="row"><button id="parsePaste">Importar texto colado</button><button class="secondary" id="clearPaste">Limpar campo</button></div>
+<div id="importStatus" class="status">Nenhuma lista importada nesta sessão.</div>
+<div id="importPreview" class="hidden">
+<div class="stats"><div class="stat"><b id="countProducts">0</b><span>Produtos</span></div><div class="stat"><b id="countIssues">0</b><span>Alertas</span></div><div class="stat"><b id="countPrices">0</b><span>Com preço próprio</span></div></div>
+<div class="table-wrap"><table><thead><tr><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Seu preço</th></tr></thead><tbody id="previewRows"></tbody></table></div>
+<p class="muted">A prévia mostra até 10 produtos. Os códigos são tratados como texto para preservar zeros à esquerda.</p>
+</div>
+</div>
+<div class="card">
+<h2>Pesquisas salvas neste celular</h2>
+<p class="muted">Os dados ficam no armazenamento deste navegador. Exporte o CSV regularmente como backup; limpar os dados do navegador pode apagá-los.</p>
+<div id="savedList" class="muted">Nenhuma pesquisa salva.</div>
+<div class="row" style="margin-top:10px"><button class="secondary" id="exportBackup">Exportar backup JSON</button><button class="secondary" id="importBackupBtn">Restaurar backup JSON</button><input id="backupFile" class="hidden" type="file" accept=".json,application/json"></div>
+</div>
 </section>
-<section class="codebox">
-<div class="muted">CÓDIGO PARA APRESENTAR AO CONSULTOR</div>
-<svg id="barcode" class="barcode" role="img" aria-label="Código de barras"></svg>
-<div id="digits" class="digits">7622202288937</div>
+
+<section id="view-collect" class="hidden">
+<div class="card">
+<h2>Configurar coleta</h2>
+<div class="grid two">
+<div><label for="supermarket">Supermercado</label><input id="supermarket" type="text" list="marketOptions" placeholder="Ex.: Condor"><datalist id="marketOptions"><option value="Condor"><option value="Muffato"><option value="Carrefour"><option value="Festval"></datalist></div>
+<div><label for="week">Referência da pesquisa</label><input id="week" type="text" placeholder="Ex.: 2026-10-14"></div>
+</div>
+<label for="order">Ordem dos produtos</label><select id="order"><option value="list">Ordem do CSV</option><option value="pending">Pendentes primeiro</option></select>
+<div class="row"><button id="startCollect">Iniciar / continuar coleta</button><button class="secondary" id="openList">Ver lista de produtos</button></div>
+<div id="collectStatus" class="status">Importe uma lista na primeira aba para começar.</div>
+</div>
+<div id="collector" class="card hidden">
+<div class="stats"><div class="stat"><b id="position">0/0</b><span>Posição</span></div><div class="stat"><b id="doneCount">0</b><span>Preços salvos</span></div><div class="stat"><b id="pendingCount">0</b><span>Pendentes</span></div></div>
+<div class="progress"><span id="progressBar"></span></div>
+<div class="product-layout">
+<div>
+<div class="ean-label">DESCRIÇÃO DO PRODUTO</div><div class="product-name" id="productName">—</div>
+<div class="ean-label">CÓDIGO EAN</div><div class="ean-number" id="productEan">—</div>
+<div class="barcode-wrap"><svg id="barcode" class="barcode" role="img" aria-label="Código de barras"></svg><div id="barcodeFallback" class="muted hidden">Código de barras indisponível; confira o EAN acima.</div></div>
+<p class="muted" id="skuUnit">SKU: —</p>
+</div>
+<div>
+<div class="status" id="ownPrice">Preço da sua loja: —</div>
+<label class="price-label" for="marketPrice">PREÇO ENCONTRADO NO SUPERMERCADO (R$)</label>
+<input id="marketPrice" class="price-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00">
+<div class="scan-actions"><button id="confirmPrice">Salvar e próximo ↵</button><button class="secondary" id="markUnavailable">Indisponível</button></div>
+<div class="scan-actions"><button class="secondary" id="previousProduct">← Anterior</button><button class="secondary" id="skipProduct">Pular →</button></div>
+<button class="dark" id="fullscreenBarcode">EAN em tela cheia</button>
+<p class="muted">Digite o preço exibido no consultor. O salvamento avança automaticamente. Se o leitor não ler a tela, use o EAN impresso na embalagem ou registre o preço manualmente.</p>
+</div>
+</div>
+</div>
+<div id="listCard" class="card hidden">
+<h2>Lista de produtos</h2><input id="searchProducts" type="text" placeholder="Filtrar por SKU, EAN ou descrição">
+<div class="table-wrap"><table><thead><tr><th>Estado</th><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Seu preço</th><th class="num">Preço coletado</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
+</div>
 </section>
-<section class="card">
-<button id="fullscreen">Abrir em tela cheia</button>
-<p class="muted small">Aumente o brilho do celular. Se a tela cheia não abrir, o código continuará visível nesta página.</p>
-<div class="offline-note">É necessária internet para carregar a biblioteca que gera os códigos de barras.</div>
+
+<section id="view-compare" class="hidden">
+<div class="card">
+<h2>Comparativo de preços</h2><p class="muted">Compare as pesquisas salvas. Preços em branco ou marcados como indisponíveis não entram no cálculo do menor preço.</p>
+<div class="row"><button id="refreshCompare">Atualizar comparativo</button><button class="secondary" id="exportCompare">Exportar comparativo CSV</button></div>
+<div id="compareStatus" class="status">Importe produtos e registre preços para gerar o comparativo.</div>
+<div class="table-wrap"><table><thead id="compareHead"></thead><tbody id="compareRows"></tbody></table></div>
+</div>
+<div class="card"><h2>Exportar coleta individual</h2><label for="exportMarket">Supermercado</label><select id="exportMarket"></select><label for="exportWeek">Referência</label><select id="exportWeek"></select><button id="exportSingle">Exportar preços CSV</button></div>
 </section>
 </main>
-<div id="full" class="full">
-<div class="muted">APRESENTE ESTE CÓDIGO AO CONSULTOR</div>
-<svg id="big" class="barcode" role="img" aria-label="Código de barras em tela cheia"></svg>
-<div id="bigdigits" class="digits"></div>
-<button id="close">Fechar tela cheia</button>
-</div>
+<div id="fullscreen" class="fullscreen"><div class="muted">APRESENTE ESTE CÓDIGO AO CONSULTOR</div><svg id="bigBarcode" class="barcode"></svg><div id="bigEan" class="ean-number"></div><button id="closeFullscreen">Fechar tela cheia</button></div>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
 <script>
-(function(){
-const $=id=>document.getElementById(id), status=$('status');
-function fmtFor(v){if(/^\d{13}$/.test(v))return 'EAN13';if(/^\d{12}$/.test(v))return 'UPC';if(/^\d{8}$/.test(v))return 'EAN8';return 'CODE128'}
-function render(target,v,fmt,w,h){window.JsBarcode(target,v,{format:fmt,width:w,height:h,displayValue:false,margin:12,lineColor:'#000',background:'#fff'});}
-function make(){
- const v=$('ean').value.trim(), chosen=$('format').value;
- if(!v){status.className='status err';status.textContent='Digite um código.';return false}
- if(chosen!=='CODE128'&&!/^\d+$/.test(v)){status.className='status err';status.textContent='Para EAN/UPC, informe apenas números, sem espaços ou hífens.';return false}
- if(typeof window.JsBarcode!=='function'){status.className='status err';status.textContent='O gerador não carregou. Verifique a internet, recarregue a página e tente novamente.';return false}
- const f=chosen==='auto'?fmtFor(v):chosen;
- try{
-  render($('barcode'),v,f,2.4,100);render($('big'),v,f,3.3,145);
-  $('digits').textContent=v;$('bigdigits').textContent=v;
-  status.className='status ok';status.textContent='Código gerado ('+f+'). Agora teste no consultor de preços.';
-  return true;
- }catch(e){status.className='status err';status.textContent='Não foi possível gerar esse código nesse formato. Confira o número e o formato.';$('barcode').innerHTML='';$('big').innerHTML='';return false}
+(() => {
+'use strict';
+const $=id=>document.getElementById(id);
+const STORE='pesquisa_precos_v1';
+let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null;
+
+function loadDb(){try{return JSON.parse(localStorage.getItem(STORE))||{lists:{},collections:{}}}catch(e){return {lists:{},collections:{}}}}
+function saveDb(){localStorage.setItem(STORE,JSON.stringify(db));renderSaved();$('headerCount').textContent=products.length?products.length+' produtos':'Sem lista'}
+function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function parseCSV(text){
+ text=String(text||'').replace(/^\uFEFF/,'').trim(); if(!text)throw Error('O conteúdo está vazio.');
+ const first=(text.split(/\r?\n/)[0]||''); const semi=(first.match(/;/g)||[]).length, tabs=(first.match(/\t/g)||[]).length, comma=(first.match(/,/g)||[]).length;
+ const delim=tabs>semi&&tabs>comma?'\t':semi>=comma?';':',';
+ const rows=[];let row=[],field='',quoted=false;
+ for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){field+='"';i++}else quoted=!quoted}
+ else if(c===delim&&!quoted){row.push(field);field=''}
+ else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(x=>x.trim()!==''))rows.push(row);row=[];field=''}
+ else field+=c}
+ row.push(field);if(row.some(x=>x.trim()!==''))rows.push(row);
+ if(rows.length<2)throw Error('Não encontrei cabeçalho e linhas de produtos.');
+ const headers=rows.shift().map(x=>norm(x).replace(/[^a-z0-9]/g,''));
+ function findHeader(keys){return headers.findIndex(h=>keys.some(k=>h.includes(k)))}
+ const ix={
+ sku:findHeader(['codigosku','sku','codigo']),
+ ean:findHeader(['codigodebarras','ean','gtin','codigodebarra']),
+ name:findHeader(['nomedoproduto','descricao','produto']),
+ unit:findHeader(['unidadedemedida','unidade']),
+ own:findHeader(['valordevenda','preco','valor'])
+ };
+ if(ix.sku<0||ix.ean<0||ix.name<0)throw Error('Cabeçalhos obrigatórios não identificados. Use Código (SKU), Código de Barras e Nome do Produto.');
+ const result=[];
+ rows.forEach((r,i)=>{const get=k=>ix[k]>=0?String(r[ix[k]]??'').trim():'';const sku=get('sku'),ean=get('ean'),name=get('name');if(!sku&&!ean&&!name)return;
+ result.push({id:sku||('linha_'+(i+2)),sku,ean,name,unit:get('unit'),ownRaw:get('own'),own:money(get('own')),row:i+2})});
+ if(!result.length)throw Error('Nenhum produto foi encontrado.');
+ return result;
 }
-$('make').addEventListener('click',make);
-$('ean').addEventListener('keydown',e=>{if(e.key==='Enter')make()});
-$('format').addEventListener('change',make);
-$('fullscreen').addEventListener('click',()=>{if(make()){$('full').classList.add('show');if($('full').requestFullscreen)$('full').requestFullscreen().catch(()=>{});}});
-function close(){ $('full').classList.remove('show');if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
-$('close').addEventListener('click',close);
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('full').classList.remove('show')});
-window.addEventListener('load',make);
-setTimeout(()=>{if(typeof window.JsBarcode!=='function'){status.className='status err';status.textContent='A biblioteca do código de barras não carregou. Verifique a conexão e tente recarregar.'}},5000);
+function money(v){if(v===null||v===undefined||String(v).trim()==='')return null;let s=String(v).trim().replace(/R\$/gi,'').replace(/\s/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=Number(s);return Number.isFinite(n)?Math.round(n*100)/100:null}
+function brl(v){return v===null||v===undefined||v===''?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function csvCell(v){let s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+function download(name,content,type='text/csv;charset=utf-8;'){const blob=new Blob(['\uFEFF',content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+function slug(s){return String(s||'pesquisa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')}
+function listId(){return $('week').value.trim()||new Date().toISOString().slice(0,10)}
+function colId(market,week){return slug(market)+'__'+slug(week)}
+function collection(){return db.collections[currentKey]}
+function productPrice(p){return collection()?.prices?.[p.id]||null}
+function setStatus(id,msg,kind=''){const el=$(id);el.className='status'+(kind?' '+kind:'');el.textContent=msg}
+function importText(text){
+ try{
+  const parsed=parseCSV(text),week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
+  products=parsed;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
+  $('countProducts').textContent=products.length;$('countIssues').textContent=products.filter(p=>!p.ean||!p.name||p.own===null).length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;
+  $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td></tr>`).join('');
+  $('importPreview').classList.remove('hidden');$('week').value=week;
+  setStatus('importStatus',`Importação concluída: ${products.length} produtos. Confira a prévia e vá para “Coletar preços”.`,'ok');
+  renderSaved();refreshCompare();
+ }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
+}
+$('csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{importText(await f.text())}catch(err){setStatus('importStatus','Não foi possível ler o arquivo: '+err.message,'err')}});
+$('parsePaste').addEventListener('click',()=>importText($('pasteCsv').value));
+$('clearPaste').addEventListener('click',()=>{$('pasteCsv').value=''});
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='compare')refreshCompare();if(t==='import')renderSaved()}
+function renderSaved(){
+ const el=$('savedList'),entries=Object.values(db.collections||{});
+ if(!entries.length){el.textContent='Nenhuma coleta salva.'}else{el.innerHTML=entries.map(c=>{const n=Object.keys(c.prices||{}).filter(k=>c.prices[k]?.status==='done'||c.prices[k]?.status==='unavailable').length;return `<div style="padding:9px 0;border-bottom:1px solid #e4e9f0"><b>${esc(c.market)}</b> · ${esc(c.week)} — ${n} registros <button class="secondary" style="width:auto;min-height:34px;padding:5px 9px;float:right;margin-top:0" data-resume="${esc(c.key)}">Abrir</button><div style="clear:both"></div></div>`}).join('');el.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>{const c=db.collections[b.dataset.resume];$('supermarket').value=c.market;$('week').value=c.week;currentKey=c.key;products=productsForCollection(c);showTab('collect');prepareSequence(true)})}
+ const markets=[...new Set(entries.map(c=>c.market))];$('exportMarket').innerHTML=markets.map(m=>`<option>${esc(m)}</option>`).join('');updateWeekOptions();
+}
+function productsForCollection(c){const l=db.lists[c.listId];return l?.products||products||[]}
+function updateWeekOptions(){const m=$('exportMarket').value;const weeks=[...new Set(Object.values(db.collections).filter(c=>!m||c.market===m).map(c=>c.week))];$('exportWeek').innerHTML=weeks.map(w=>`<option>${esc(w)}</option>`).join('')}
+$('exportMarket').addEventListener('change',updateWeekOptions);
+$('startCollect').addEventListener('click',()=>{
+ if(!products.length){setStatus('collectStatus','Importe primeiro a lista CSV na aba “Lista CSV”.','err');return}
+ const market=$('supermarket').value.trim();if(!market){setStatus('collectStatus','Informe o nome do supermercado.','err');return}
+ const week=listId();currentKey=colId(market,week);
+ if(!db.collections[currentKey])db.collections[currentKey]={key:currentKey,market,week,listId:db.activeList,prices:{},created:new Date().toISOString(),updated:new Date().toISOString()};
+ else {db.collections[currentKey].market=market;db.collections[currentKey].listId=db.activeList||db.collections[currentKey].listId}
+ saveDb();prepareSequence(false);$('collector').classList.remove('hidden');setStatus('collectStatus',`Coleta ativa: ${market} · ${week}. Os preços são salvos neste celular.`,'ok');
+});
+function prepareSequence(resume){
+ const c=collection();if(!c){setStatus('collectStatus','Selecione um supermercado e inicie a coleta.','err');return}
+ let ids=products.map(p=>p.id);if($('order').value==='pending'){ids.sort((a,b)=>{const pa=c.prices[a]?.status==='done'||c.prices[a]?.status==='unavailable',pb=c.prices[b]?.status==='done'||c.prices[b]?.status==='unavailable';return Number(pa)-Number(pb)})}
+ sequence=ids;seqPos=0;
+ if(resume){const firstPending=sequence.findIndex(id=>!['done','unavailable'].includes(c.prices[id]?.status));seqPos=firstPending>=0?firstPending:0}
+ currentProductId=sequence[seqPos];$('collector').classList.remove('hidden');renderCurrent();renderProductTable();saveDb();
+}
+function renderCurrent(){
+ const c=collection();if(!c||!products.length)return;
+ if(seqPos<0)seqPos=0;if(seqPos>=sequence.length)seqPos=sequence.length-1;
+ currentProductId=sequence[seqPos];const p=products.find(x=>x.id===currentProductId);if(!p)return;
+ const record=c.prices[p.id];$('position').textContent=(seqPos+1)+'/'+sequence.length;
+ const done=Object.values(c.prices).filter(x=>['done','unavailable'].includes(x.status)).length;
+ $('doneCount').textContent=done;$('pendingCount').textContent=Math.max(0,products.length-done);$('progressBar').style.width=(products.length?done/products.length*100:0)+'%';
+ $('productName').textContent=p.name||'(Sem descrição)';$('productEan').textContent=p.ean||'(Sem EAN)';$('skuUnit').textContent='SKU: '+(p.sku||'—')+' · Unidade: '+(p.unit||'—');$('ownPrice').textContent='Preço da sua loja: '+brl(p.own);
+ $('marketPrice').value=record?.status==='done'&&record.price!==null?Number(record.price).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+ if(typeof JsBarcode==='function'&&p.ean){try{const fmt=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('barcode'),p.ean,{format:fmt,width:2.1,height:85,displayValue:false,margin:10});$('barcodeFallback').classList.add('hidden');$('barcode').classList.remove('hidden')}catch(e){$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}}else{$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}
+ $('marketPrice').focus({preventScroll:true});renderProductTable();
+}
+function savePrice(status,price=null){
+ const c=collection(),p=products.find(x=>x.id===currentProductId);if(!c||!p)return;
+ c.prices[p.id]={status,price,updated:new Date().toISOString(),sku:p.sku,ean:p.ean,name:p.name};
+ c.updated=new Date().toISOString();saveDb();refreshCompare();nextProduct();
+}
+function nextProduct(){if(seqPos<sequence.length-1)seqPos++;renderCurrent()}
+$('confirmPrice').addEventListener('click',()=>{const raw=$('marketPrice').value,price=money(raw);if(price===null||price<0){setStatus('collectStatus','Informe um preço válido, por exemplo 12,38.','err');$('marketPrice').focus();return}savePrice('done',price)});
+$('marketPrice').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('confirmPrice').click()}});
+$('markUnavailable').addEventListener('click',()=>savePrice('unavailable',null));
+$('skipProduct').addEventListener('click',nextProduct);
+$('previousProduct').addEventListener('click',()=>{if(seqPos>0)seqPos--;renderCurrent()});
+$('openList').addEventListener('click',()=>{$('listCard').classList.toggle('hidden');renderProductTable()});
+function renderProductTable(){
+ if(!products.length)return;const c=collection(),q=norm($('searchProducts').value);
+ const filtered=products.filter(p=>!q||norm([p.sku,p.ean,p.name].join(' ')).includes(q));
+ $('productRows').innerHTML=filtered.map(p=>{const r=c?.prices?.[p.id],done=['done','unavailable'].includes(r?.status);return `<tr><td><span class="tag ${done?'done':'pending'}">${r?.status==='unavailable'?'Indisponível':done?'Coletado':'Pendente'}</span></td><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td><td class="num">${r?.status==='done'?brl(r.price):'—'}</td><td><button class="secondary" style="min-height:34px;padding:5px 9px" data-go="${esc(p.id)}">Abrir</button></td></tr>`}).join('');
+ $('productRows').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const ix=sequence.indexOf(b.dataset.go);if(ix>=0){seqPos=ix;renderCurrent();window.scrollTo({top:0,behavior:'smooth'})}});
+}
+$('searchProducts').addEventListener('input',renderProductTable);
+function refreshCompare(){
+ const cols=Object.values(db.collections||{});const head=$('compareHead'),body=$('compareRows');
+ if(!products.length&&db.activeList&&db.lists[db.activeList])products=db.lists[db.activeList].products;
+ if(!products.length||!cols.length){head.innerHTML='';body.innerHTML='';setStatus('compareStatus','Importe uma lista e registre preços em pelo menos um supermercado.');renderSaved();return}
+ const markets=[...new Set(cols.map(c=>c.market))].sort();
+ head.innerHTML='<tr><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Seu preço</th>'+markets.map(m=>`<th class="num">${esc(m)}</th>`).join('')+'<th class="num">Menor preço</th></tr>';
+ body.innerHTML=products.map(p=>{const vals=markets.map(m=>{const cs=cols.filter(c=>c.market===m&&c.week===$('week').value.trim()||c.market===m);let best=null;cs.forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(best===null||r.price<best))best=r.price});return best});
+ const valid=vals.filter(v=>v!==null);const min=valid.length?Math.min(...valid):null;
+ return `<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td>${vals.map(v=>`<td class="num">${brl(v)}</td>`).join('')}<td class="num"><b>${brl(min)}</b></td></tr>`}).join('');
+ setStatus('compareStatus',`${products.length} produtos · ${markets.length} supermercados com pesquisas salvas.`,'ok');renderSaved();
+}
+$('refreshCompare').addEventListener('click',refreshCompare);
+function csvForCollection(c){
+ const l=db.lists[c.listId],ps=l?.products||products;
+ const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Valor de Venda','Supermercado','Referência','Preço Coletado','Status','Data/Hora']];
+ ps.forEach(p=>{const r=c.prices?.[p.id];rows.push([p.sku,p.ean,p.name,p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),c.market,c.week,r?.price===null||r?.price===undefined?'':Number(r.price).toFixed(2).replace('.',','),r?.status==='done'?'Coletado':r?.status==='unavailable'?'Indisponível':'Pendente',r?.updated||''])});
+ return rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+}
+$('exportSingle').addEventListener('click',()=>{const market=$('exportMarket').value,week=$('exportWeek').value,c=Object.values(db.collections).find(x=>x.market===market&&x.week===week);if(!c){setStatus('compareStatus','Não encontrei coleta para essa seleção.','err');return}download(`precos_${slug(market)}_${slug(week)}.csv`,csvForCollection(c))});
+$('exportCompare').addEventListener('click',()=>{
+ const cols=Object.values(db.collections);if(!products.length||!cols.length){setStatus('compareStatus','Não há dados para exportar.','err');return}
+ const markets=[...new Set(cols.map(c=>c.market))].sort();const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Seu preço',...markets,'Menor preço']];
+ products.forEach(p=>{const vals=markets.map(m=>{let v=null;cols.filter(c=>c.market===m).forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(v===null||r.price<v))v=r.price});return v});const valid=vals.filter(v=>v!==null);rows.push([p.sku,p.ean,p.name,p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),...vals.map(v=>v===null?'':Number(v).toFixed(2).replace('.',',')),valid.length?Number(Math.min(...valid)).toFixed(2).replace('.',','):''])});
+ download(`comparativo_precos_${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvCell).join(';')).join('\r\n'));
+});
+$('fullscreenBarcode').addEventListener('click',()=>{const p=products.find(x=>x.id===currentProductId);if(!p?.ean)return;try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});$('bigEan').textContent=p.ean;$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}); 
+$('closeFullscreen').addEventListener('click',()=>{ $('fullscreen').classList.remove('show');if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})});
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('fullscreen').classList.remove('show')});
+$('exportBackup').addEventListener('click',()=>download(`backup_pesquisa_precos_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,2),'application/json'));
+$('importBackupBtn').addEventListener('click',()=>$('backupFile').click());
+$('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!x.lists||!x.collections)throw Error('Formato de backup inválido.');db=x;products=db.activeList&&db.lists[db.activeList]?db.lists[db.activeList].products:[];saveDb();setStatus('importStatus','Backup restaurado.','ok');renderSaved()}catch(err){setStatus('importStatus','Falha ao restaurar backup: '+err.message,'err')}});
+window.addEventListener('load',()=>{
+ if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('countProducts').textContent=products.length;$('countIssues').textContent=products.filter(p=>!p.ean||!p.name||p.own===null).length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
+ renderSaved();refreshCompare();
+});
 })();
 </script>
-</body></html>
+</body>
+</html>
