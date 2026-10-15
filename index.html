@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132238">
-<title>Pesquisa de Preços</title>
+<title>Pesquisa de Preços — v2.1 corrigida</title>
 <style>
 :root{--navy:#132238;--blue:#155eef;--pale:#eef4ff;--green:#067647;--red:#b42318;--border:#d6deea;--muted:#5d6b82}
 *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172033;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -115,8 +115,10 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
+function setText(id,value){const el=$(id);if(el)el.textContent=String(value??'');else console.error('Elemento HTML ausente:',id)}
 const STORE='pesquisa_precos_v1';
-let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null; db.masterCatalog=db.masterCatalog||[];
+let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null;
+db.lists=db.lists||{};db.collections=db.collections||{};db.masterCatalog=Array.isArray(db.masterCatalog)?db.masterCatalog:[];
 
 function loadDb(){try{return JSON.parse(localStorage.getItem(STORE))||{lists:{},collections:{}}}catch(e){return {lists:{},collections:{}}}}
 function saveDb(){localStorage.setItem(STORE,JSON.stringify(db));renderSaved();$('headerCount').textContent=products.length?products.length+' produtos':'Sem lista'}
@@ -172,10 +174,10 @@ function parseMasterJson(text){
 function importMaster(text){
  try{
   const catalog=parseMasterJson(text);db.masterCatalog=catalog;saveDb();
-  $('masterCount').textContent=catalog.length;
-  $('masterIssues').textContent=catalog.filter(p=>!p.ean||!p.name||p.own===null).length;
+  setText('masterCount',catalog.length);
+  setText('masterIssues',catalog.filter(p=>!p.ean||!p.name||p.own===null).length);
   setStatus('masterStatus',`Cadastro importado com sucesso: ${catalog.length} produtos. Agora importe o CSV semanal.`,'ok');
- }catch(e){setStatus('masterStatus',e.message||'Falha ao importar JSON.','err')}
+ }catch(e){console.error('Falha na importação do JSON:',e);setStatus('masterStatus',e.message||'Falha ao importar JSON.','err')}
 }
 function importSales(text){
  try{
@@ -202,12 +204,12 @@ function importSales(text){
   if(!sales.length)throw Error('Nenhum produto válido foi encontrado no CSV.');
   const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
   products=sales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
-  $('salesCount').textContent=products.length;
+  setText('salesCount',products.length);
   $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched?'Encontrado':'<span class="tag pending">Não encontrado</span>'}</td></tr>`).join('');
   $('importPreview').classList.remove('hidden');$('week').value=week;
   setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.`,'ok');
   renderSaved();refreshCompare();
- }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
+ }catch(e){console.error('Falha no processamento do CSV:',e);setStatus('importStatus',e.message||'Falha ao importar CSV. Consulte o console do navegador para detalhes.','err')}
 }
 $('masterFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('masterStatus',`Arquivo selecionado: ${f.name}. Clique em “Importar cadastro JSON”.`)});
 $('csvFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('importStatus',`Arquivo selecionado: ${f.name}. Clique em “Processar relatório CSV”.`)});
@@ -242,10 +244,10 @@ function renderCurrent(){
  const c=collection();if(!c||!products.length)return;
  if(seqPos<0)seqPos=0;if(seqPos>=sequence.length)seqPos=sequence.length-1;
  currentProductId=sequence[seqPos];const p=products.find(x=>x.id===currentProductId);if(!p)return;
- const record=c.prices[p.id];$('position').textContent=(seqPos+1)+'/'+sequence.length;
+ const record=c.prices[p.id];setText('position',(seqPos+1)+'/'+sequence.length);
  const done=Object.values(c.prices).filter(x=>['done','unavailable'].includes(x.status)).length;
- $('doneCount').textContent=done;$('pendingCount').textContent=Math.max(0,products.length-done);$('progressBar').style.width=(products.length?done/products.length*100:0)+'%';
- $('productName').textContent=p.name||'(Sem descrição)';$('productEan').textContent=p.ean||'(Sem EAN)';$('skuUnit').textContent='SKU: '+(p.sku||'—')+' · Unidade: '+(p.unit||'—');$('ownPrice').textContent='Preço da sua loja: '+brl(p.own);
+ setText('doneCount',done);setText('pendingCount',Math.max(0,products.length-done));$('progressBar').style.width=(products.length?done/products.length*100:0)+'%';
+ setText('productName',p.name||'(Sem descrição)');setText('productEan',p.ean||'(Sem EAN)');setText('skuUnit','SKU: '+(p.sku||'—')+' · Unidade: '+(p.unit||'—'));setText('ownPrice','Preço da sua loja: '+brl(p.own));
  $('marketPrice').value=record?.status==='done'&&record.price!==null?Number(record.price).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
  if(typeof JsBarcode==='function'&&p.ean){try{const fmt=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('barcode'),p.ean,{format:fmt,width:2.1,height:85,displayValue:false,margin:10});$('barcodeFallback').classList.add('hidden');$('barcode').classList.remove('hidden')}catch(e){$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}}else{$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}
  $('marketPrice').focus({preventScroll:true});renderProductTable();
@@ -294,14 +296,14 @@ $('exportCompare').addEventListener('click',()=>{
  products.forEach(p=>{const vals=markets.map(m=>{let v=null;cols.filter(c=>c.market===m).forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(v===null||r.price<v))v=r.price});return v});const valid=vals.filter(v=>v!==null);rows.push([p.sku,p.ean,p.name,p.unit,p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),p.own===null?'':Number(p.own).toFixed(2).replace('.',','),...vals.map(v=>v===null?'':Number(v).toFixed(2).replace('.',',')),valid.length?Number(Math.min(...valid)).toFixed(2).replace('.',','):''])});
  download(`comparativo_precos_${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvCell).join(';')).join('\r\n'));
 });
-$('fullscreenBarcode').addEventListener('click',()=>{const p=products.find(x=>x.id===currentProductId);if(!p?.ean)return;try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});$('bigEan').textContent=p.ean;$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}); 
+$('fullscreenBarcode').addEventListener('click',()=>{const p=products.find(x=>x.id===currentProductId);if(!p?.ean)return;try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});setText('bigEan',p.ean);$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}); 
 $('closeFullscreen').addEventListener('click',()=>{ $('fullscreen').classList.remove('show');if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})});
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('fullscreen').classList.remove('show')});
 $('exportBackup').addEventListener('click',()=>download(`backup_pesquisa_precos_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,2),'application/json'));
 $('importBackupBtn').addEventListener('click',()=>$('backupFile').click());
 $('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!x.lists||!x.collections)throw Error('Formato de backup inválido.');db=x;products=db.activeList&&db.lists[db.activeList]?db.lists[db.activeList].products:[];saveDb();setStatus('importStatus','Backup restaurado.','ok');renderSaved()}catch(err){setStatus('importStatus','Falha ao restaurar backup: '+err.message,'err')}});
 window.addEventListener('load',()=>{
- if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
+ if(db.masterCatalog?.length){setText('masterCount',db.masterCatalog.length);setText('masterIssues',db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length);setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;setText('salesCount',products.length);$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
  renderSaved();refreshCompare();
 });
 })();
