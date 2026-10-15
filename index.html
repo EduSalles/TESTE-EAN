@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132238">
-<title>Pesquisa de Preços v3.2</title>
+<title>Pesquisa de Preços v3.4 - Sincronização</title>
 <style>
 :root{--navy:#132238;--blue:#155eef;--pale:#eef4ff;--green:#067647;--red:#b42318;--border:#d6deea;--muted:#5d6b82}
 *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172033;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -25,7 +25,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </style>
 </head>
 <body>
-<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • versão 3.3</small></div><span id="headerCount">Sem lista</span></div></header>
+<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • sincronização central</small></div><span id="headerCount">Sem lista</span></div></header>
 <main>
 <nav class="tabs" aria-label="Seções">
 <button class="tab active" data-tab="import">1. Importar arquivos</button>
@@ -40,6 +40,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <label for="masterFile">Selecionar cadastro .JSON</label><input type="file" id="masterFile" accept=".json,application/json">
 <button id="importMasterBtn" style="margin-top:8px;width:100%">Importar cadastro JSON</button>
 <div id="masterStatus" class="status">Nenhum cadastro JSON importado.</div>
+ <div id="syncStatus" class="status">Verificando cadastro central...</div>
 <div class="stats"><div class="stat"><b id="masterCount">0</b><span>Produtos no cadastro</span></div><div class="stat"><b id="masterIssues">0</b><span>Sem EAN ou dados</span></div><div class="stat"><b id="salesCount">0</b><span>Produtos na semana</span></div></div>
 </div>
 <div class="card">
@@ -68,7 +69,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <div><label for="supermarket">Supermercado</label><input id="supermarket" type="text" list="marketOptions" placeholder="Ex.: Condor"><datalist id="marketOptions"><option value="Condor"><option value="Muffato"><option value="Carrefour"><option value="Festval"></datalist></div>
 <div><label for="week">Referência da pesquisa</label><input id="week" type="text" placeholder="Ex.: 2026-10-14"></div>
 </div>
-<label for="order">Ordem dos produtos</label><select id="order"><option value="list">Ordem do CSV</option><option value="pending">Pendentes primeiro</option></select>
+<label for="order">Ordem dos produtos</label><select id="order"><option value="list">Ordem Decrescente de Qtde.</option><option value="pending">Pendentes primeiro</option></select>
 <div class="row"><button id="startCollect">Iniciar / continuar coleta</button><button class="secondary" id="openList">Ver lista de produtos</button></div>
 <div id="collectStatus" class="status">Importe uma lista na primeira aba para começar.</div>
 </div>
@@ -178,6 +179,55 @@ function importMaster(text){
   setStatus('masterStatus',`Cadastro importado com sucesso: ${catalog.length} produtos. Agora importe o CSV semanal.`,'ok');
  }catch(e){setStatus('masterStatus',e.message||'Falha ao importar JSON.','err')}
 }
+
+const CENTRAL_CATALOG_URL = new URL('./produtos.json', window.location.href).href;
+const CATALOG_HASH_KEY = 'pesquisa_precos_catalog_hash_v1';
+async function sha256(text){
+ try{
+  const bytes=new TextEncoder().encode(text);
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+ }catch(e){return String(text.length)+':'+text.slice(0,100)+':'+text.slice(-100)}
+}
+async function checkCentralCatalog(){
+ const status=$('syncStatus');
+ try{
+  if(location.protocol==='file:'){
+   setStatus('syncStatus','Para sincronizar entre celulares, publique index.html e produtos.json no GitHub Pages e abra pelo endereço https://.','');
+   return;
+  }
+  setStatus('syncStatus','Verificando se existe uma versão nova do cadastro central...');
+  const response=await fetch(CENTRAL_CATALOG_URL+'?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const text=await response.text();
+  const catalog=parseMasterJson(text);
+  const hash=await sha256(text);
+  const oldHash=localStorage.getItem(CATALOG_HASH_KEY);
+  const currentCount=(db.masterCatalog||[]).length;
+  if(!currentCount){
+   if(confirm(`Cadastro central encontrado com ${catalog.length} produtos. Deseja carregá-lo neste celular?`)){
+    importMaster(text);
+    localStorage.setItem(CATALOG_HASH_KEY,hash);
+    setStatus('syncStatus',`Cadastro central carregado: ${catalog.length} produtos.`, 'ok');
+   }else setStatus('syncStatus','Cadastro central disponível, mas ainda não foi carregado neste celular.');
+   return;
+  }
+  if(oldHash===hash){
+   setStatus('syncStatus',`Cadastro sincronizado. ${catalog.length} produtos; nenhuma atualização disponível.`,'ok');
+   return;
+  }
+  if(confirm(`Foi encontrada uma versão diferente do cadastro central (${catalog.length} produtos). Deseja atualizar o cadastro deste celular? As pesquisas e os preços coletados serão preservados.`)){
+   importMaster(text);
+   localStorage.setItem(CATALOG_HASH_KEY,hash);
+   setStatus('syncStatus',`Cadastro atualizado pelo GitHub: ${catalog.length} produtos. Pesquisas locais preservadas.`,'ok');
+  }else{
+   setStatus('syncStatus','Existe uma atualização do cadastro central. Você poderá atualizar ao abrir o aplicativo novamente.');
+  }
+ }catch(e){
+  setStatus('syncStatus','Não foi possível consultar o cadastro central. Verifique a publicação do arquivo produtos.json e a conexão. Detalhe: '+(e.message||e),'err');
+ }
+}
+
 function importSales(text){
  try{
   if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');
@@ -338,6 +388,7 @@ $('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if
 window.addEventListener('load',()=>{
  if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
  renderSaved();refreshCompare();
+ checkCentralCatalog();
 });
 })();
 </script>
