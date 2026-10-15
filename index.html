@@ -25,7 +25,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </style>
 </head>
 <body>
-<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • versão 3.0</small></div><span id="headerCount">Sem lista</span></div></header>
+<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • versão 3.1</small></div><span id="headerCount">Sem lista</span></div></header>
 <main>
 <nav class="tabs" aria-label="Seções">
 <button class="tab active" data-tab="import">1. Importar arquivos</button>
@@ -274,26 +274,40 @@ function refreshCompare(){
  if(!products.length&&db.activeList&&db.lists[db.activeList])products=db.lists[db.activeList].products;
  if(!products.length||!cols.length){head.innerHTML='';body.innerHTML='';setStatus('compareStatus','Importe uma lista e registre preços em pelo menos um supermercado.');renderSaved();return}
  const markets=[...new Set(cols.map(c=>c.market))].sort();
- // Totais calculados exclusivamente a partir das mesmas células que recebem o destaque amarelo.
- // Cada produto só entra no subtotal do supermercado se o preço exibido for o menor.
- // O total geral soma uma única vez a contribuição de cada produto com preço disponível.
- const marketTotals=Object.fromEntries(markets.map(m=>[m,{value:0,count:0}]));
- let overallMinTotal=0, overallMinCount=0;
+ // A MESMA condição determina a célula amarela e seu subtotal.
+ // Os totais são acumulados em centavos, sem arredondamentos intermediários.
+ const marketTotals=markets.map(()=>({cents:0,count:0}));
+ let overallCents=0,overallCount=0;
  const compareRows=products.map(p=>{
-  const vals=markets.map(m=>{const cs=cols.filter(c=>c.market===m);let best=null;cs.forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&r.price!==undefined&&Number.isFinite(Number(r.price))&&(best===null||Number(r.price)<best))best=Number(r.price)});return best});
-  const valid=vals.filter(v=>v!==null&&Number.isFinite(v));const min=valid.length?Math.min(...valid):null;
-  const qty=Number.parseInt(String(p.quantity??'0'),10)||0;
-  const isMinByMarket=vals.map(v=>min!==null&&v!==null&&Math.abs(v-min)<0.000001);
+  const vals=markets.map(m=>{
+   let best=null;
+   cols.filter(c=>c.market===m).forEach(c=>{
+    const r=c.prices?.[p.id];
+    if(r?.status==='done'&&r.price!==null&&r.price!==undefined){
+     const v=Number(r.price);
+     if(Number.isFinite(v)&&v>=0&&(best===null||v<best))best=v;
+    }
+   });
+   return best;
+  });
+  const cents=vals.map(v=>v===null?null:Math.round(v*100));
+  const valid=cents.filter(v=>v!==null);
+  const min=valid.length?Math.min(...valid):null;
+  const qty=Math.max(0,Number.parseInt(String(p.quantity??'0'),10)||0);
+  const yellow=cents.map(v=>min!==null&&v!==null&&v===min);
   if(min!==null){
-   overallMinTotal+=qty*min;
-   overallMinCount++;
-   isMinByMarket.forEach((isMin,i)=>{if(isMin){marketTotals[markets[i]].value+=qty*min;marketTotals[markets[i]].count++}});
+   overallCents+=qty*min;
+   overallCount++;
   }
-  const priceCells=vals.map((v,i)=>{const isMin=isMinByMarket[i];return `<td class="num${isMin?' best-price-cell':''}" ${isMin?'style="background-color:#ffeb3b !important;color:#000 !important;font-weight:800"':''}>${brl(v)}</td>`}).join('');
-  return `<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??'—'}</td><td class="num">${brl(p.own)}</td>${priceCells}<td class="num"><b>${brl(min)}</b></td></tr>`;
+  const priceCells=cents.map((v,i)=>{
+   const isYellow=yellow[i];
+   if(isYellow){marketTotals[i].cents+=qty*v;marketTotals[i].count++}
+   return `<td class="num${isYellow?' best-price-cell':''}" ${isYellow?'style="background-color:#ffeb3b !important;color:#000 !important;font-weight:800"':''}>${brl(v===null?null:v/100)}</td>`;
+  }).join('');
+  return `<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??'—'}</td><td class="num">${brl(p.own)}</td>${priceCells}<td class="num"><b>${brl(min===null?null:min/100)}</b></td></tr>`;
  });
- const totalCell=x=>x.count?brl(x.value):'—';
- head.innerHTML='<tr class="totals-row"><th rowspan="2">SKU</th><th rowspan="2">EAN</th><th rowspan="2">Produto</th><th rowspan="2" class="num">Quantidade</th><th rowspan="2" class="num">Seu preço</th>'+markets.map(m=>`<th class="num">${totalCell(marketTotals[m])}</th>`).join('')+`<th class="num">${overallMinCount?brl(overallMinTotal):'—'}</th></tr><tr>`+markets.map(m=>`<th class="num">${esc(m)}</th>`).join('')+'<th class="num">Menor preço</th></tr>';
+ const totalCell=x=>x.count?brl(x.cents/100):'—';
+ head.innerHTML='<tr class="totals-row"><th rowspan="2">SKU</th><th rowspan="2">EAN</th><th rowspan="2">Produto</th><th rowspan="2" class="num">Quantidade</th><th rowspan="2" class="num">Seu preço</th>'+markets.map((m,i)=>`<th class="num">${totalCell(marketTotals[i])}</th>`).join('')+`<th class="num">${overallCount?brl(overallCents/100):'—'}</th></tr><tr>`+markets.map(m=>`<th class="num">${esc(m)}</th>`).join('')+'<th class="num">Menor preço</th></tr>';
  body.innerHTML=compareRows.join('');
  setStatus('compareStatus',`${products.length} produtos · ${markets.length} supermercados com pesquisas salvas.`,'ok');renderSaved();
 }
