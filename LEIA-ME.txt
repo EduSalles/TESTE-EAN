@@ -1,9 +1,10 @@
-TESTE DE LEITURA EAN — COMO USAR
+PESQUISA DE PREÇOS — VERSÃO CORRIGIDA DOS BOTÕES
 
-1. Extraia a pasta/ZIP.
-2. Para testar no celular, publique o arquivo index.html em uma hospedagem HTTPS (por exemplo, GitHub Pages) ou sirva-o por um endereço web local acessível pelo celular.
-3. A página usa a biblioteca JsBarcode por CDN; precisa de internet na primeira abertura.
-4. Abra index.html, digite um EAN real, toque em Gerar código e depois em Abrir em tela cheia.
-5. Aumente o brilho e teste no consultor de preços.
+1. Extraia o ZIP para uma pasta nova.
+2. Abra o index.html dessa pasta no navegador.
+3. Selecione o JSON e clique em “Importar cadastro JSON”. Aguarde a mensagem de sucesso.
+4. Selecione o CSV e clique em “Processar relatório CSV”. Aguarde a mensagem e confira a prévia.
 
-IMPORTANTE: abrir o HTML como anexo dentro do WhatsApp/Drive pode não funcionar, pois alguns visualizadores bloqueiam scripts externos. Abra no navegador (Chrome/Safari) por uma URL HTTPS.
+Correção técnica: foram incluídas funções auxiliares que faltavam no JavaScript e que faziam os cliques falharem (status, formatação, exportação e identificadores de coleta). O JavaScript foi validado quanto à sintaxe.
+
+Regras: ignora códigos --- e Total:, cruza pelo SKU e considera apenas o trecho antes do ponto na quantidade (1.000 -> 1; 4.0000 -> 4). Os dados ficam no armazenamento local do navegador.
