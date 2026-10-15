@@ -1,10 +1,20 @@
-PESQUISA DE PREÇOS — VERSÃO CORRIGIDA DOS BOTÕES
+PESQUISA DE PREÇOS — SINCRONIZAÇÃO DO CADASTRO PELO GITHUB PAGES
 
-1. Extraia o ZIP para uma pasta nova.
-2. Abra o index.html dessa pasta no navegador.
-3. Selecione o JSON e clique em “Importar cadastro JSON”. Aguarde a mensagem de sucesso.
-4. Selecione o CSV e clique em “Processar relatório CSV”. Aguarde a mensagem e confira a prévia.
+Arquivos:
+- index.html: aplicativo
+- produtos.json: cadastro central exportado do ConnectPlug (15/10/2026)
 
-Correção técnica: foram incluídas funções auxiliares que faltavam no JavaScript e que faziam os cliques falharem (status, formatação, exportação e identificadores de coleta). O JavaScript foi validado quanto à sintaxe.
+PUBLICAÇÃO
+1. No repositório GitHub que hospedará o aplicativo, envie/substitua index.html e adicione produtos.json na mesma pasta.
+2. Ative GitHub Pages nas configurações do repositório (se ainda não estiver ativo).
+3. Abra o endereço HTTPS do GitHub Pages nos dois celulares.
 
-Regras: ignora códigos --- e Total:, cruza pelo SKU e considera apenas o trecho antes do ponto na quantidade (1.000 -> 1; 4.0000 -> 4). Os dados ficam no armazenamento local do navegador.
+SINCRONIZAÇÃO
+- Ao abrir o aplicativo, ele consulta ./produtos.json e pergunta antes de carregar uma nova versão.
+- O cadastro e as coletas continuam salvos localmente em cada celular.
+- Atualizar produtos.json no GitHub disponibiliza o novo cadastro para os dois aparelhos.
+- Os preços coletados/pesquisas não são sincronizados entre celulares; apenas o cadastro mestre.
+- Não abra index.html diretamente como arquivo local: nesse modo o navegador bloqueia a consulta confiável do arquivo central.
+
+IMPORTANTE
+O código usa uma URL relativa (./produtos.json), portanto os dois arquivos devem ficar na mesma pasta publicada pelo GitHub Pages.

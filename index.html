@@ -96,7 +96,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </div>
 <div id="listCard" class="card hidden">
 <h2>Lista de produtos</h2><input id="searchProducts" type="text" placeholder="Filtrar por SKU, EAN ou descrição">
-<div class="table-wrap"><table><thead><tr><th>Estado</th><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Seu preço</th><th class="num">Preço coletado</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Estado</th><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Seu preço</th><th class="num">Preço coletado</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
 </div>
 </section>
 
@@ -317,7 +317,7 @@ $('openList').addEventListener('click',()=>{$('listCard').classList.toggle('hidd
 function renderProductTable(){
  if(!products.length)return;const c=collection(),q=norm($('searchProducts').value);
  const filtered=products.filter(p=>!q||norm([p.sku,p.ean,p.name].join(' ')).includes(q));
- $('productRows').innerHTML=filtered.map(p=>{const r=c?.prices?.[p.id],done=['done','unavailable'].includes(r?.status);return `<tr><td><span class="tag ${done?'done':'pending'}">${r?.status==='unavailable'?'Indisponível':done?'Coletado':'Pendente'}</span></td><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td><td class="num">${r?.status==='done'?brl(r.price):'—'}</td><td><button class="secondary" style="min-height:34px;padding:5px 9px" data-go="${esc(p.id)}">Abrir</button></td></tr>`}).join('');
+ $('productRows').innerHTML=filtered.map(p=>{const r=c?.prices?.[p.id],done=['done','unavailable'].includes(r?.status);return `<tr><td><span class="tag ${done?'done':'pending'}">${r?.status==='unavailable'?'Indisponível':done?'Coletado':'Pendente'}</span></td><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${Number(p.quantity??0).toLocaleString('pt-BR')}</td><td class="num">${brl(p.own)}</td><td class="num">${r?.status==='done'?brl(r.price):'—'}</td><td><button class="secondary" style="min-height:34px;padding:5px 9px" data-go="${esc(p.id)}">Abrir</button></td></tr>`}).join('');
  $('productRows').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const ix=sequence.indexOf(b.dataset.go);if(ix>=0){seqPos=ix;renderCurrent();window.scrollTo({top:0,behavior:'smooth'})}});
 }
 $('searchProducts').addEventListener('input',renderProductTable);
