@@ -38,6 +38,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <h2>1. Importar cadastro de produtos (JSON)</h2>
 <p class="muted">Importe primeiro o arquivo JSON exportado pelo ConnectPlug. O cadastro será guardado neste navegador para uso nas próximas semanas.</p>
 <label for="masterFile">Selecionar cadastro .JSON</label><input type="file" id="masterFile" accept=".json,application/json">
+<button id="importMasterBtn" style="margin-top:8px;width:100%">Importar cadastro JSON</button>
 <div id="masterStatus" class="status">Nenhum cadastro JSON importado.</div>
 <div class="stats"><div class="stat"><b id="masterCount">0</b><span>Produtos no cadastro</span></div><div class="stat"><b id="masterIssues">0</b><span>Sem EAN ou dados</span></div><div class="stat"><b id="salesCount">0</b><span>Produtos na semana</span></div></div>
 </div>
@@ -45,6 +46,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <h2>2. Importar relatório semanal de vendas (CSV)</h2>
 <p class="muted">O CSV será cruzado com o cadastro JSON pelo SKU. As linhas com código "---" e "Total:" serão ignoradas. Na quantidade, será considerado apenas o trecho antes do ponto: 1.000 → 1; 4.0000 → 4.</p>
 <label for="csvFile">Selecionar relatório semanal .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
+<button id="importSalesBtn" style="margin-top:8px;width:100%">Processar relatório CSV</button>
 <div id="importStatus" class="status">Nenhum relatório semanal importado.</div>
 <div id="importPreview" class="hidden">
 <div class="table-wrap"><table><thead><tr><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Valor vendido</th><th class="num">Seu preço</th><th>Correspondência</th></tr></thead><tbody id="previewRows"></tbody></table></div>
@@ -197,8 +199,10 @@ function importSales(text){
   renderSaved();refreshCompare();
  }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
 }
-$('masterFile').addEventListener('change',async e=>{const f=e.target.files[0];if(f)importMaster(await f.text())});
-$('csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{importSales(await f.text())}catch(err){setStatus('importStatus','Não foi possível ler o arquivo: '+err.message,'err')}});
+$('masterFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('masterStatus',`Arquivo selecionado: ${f.name}. Clique em “Importar cadastro JSON”.`)});
+$('csvFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('importStatus',`Arquivo selecionado: ${f.name}. Clique em “Processar relatório CSV”.`)});
+$('importMasterBtn').addEventListener('click',async()=>{const f=$('masterFile').files[0];if(!f){setStatus('masterStatus','Selecione primeiro o arquivo JSON.','err');return}setStatus('masterStatus','Lendo e validando o cadastro JSON...');try{importMaster(await f.text())}catch(err){setStatus('masterStatus','Erro ao ler o JSON: '+(err.message||err),'err')}});
+$('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}setStatus('importStatus','Lendo e processando o relatório CSV...');try{importSales(await f.text())}catch(err){setStatus('importStatus','Erro ao ler o CSV: '+(err.message||err),'err')}});
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='compare')refreshCompare();if(t==='import')renderSaved()}
 function renderSaved(){
