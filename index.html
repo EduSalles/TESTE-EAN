@@ -28,23 +28,27 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação</small></div><span id="headerCount">Sem lista</span></div></header>
 <main>
 <nav class="tabs" aria-label="Seções">
-<button class="tab active" data-tab="import">1. Lista CSV</button>
+<button class="tab active" data-tab="import">1. Importar arquivos</button>
 <button class="tab" data-tab="collect">2. Coletar preços</button>
 <button class="tab" data-tab="compare">3. Comparativo</button>
 </nav>
 
 <section id="view-import">
 <div class="card">
-<h2>Importar lista semanal</h2>
-<p class="muted">Selecione o CSV ou copie e cole os dados. O formato do exemplo (separador ponto e vírgula, campos entre aspas) é aceito. A lista nova não apaga automaticamente os preços já salvos.</p>
-<label for="csvFile">Selecionar arquivo .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
-<label for="pasteCsv">Ou copie e cole os dados aqui</label><textarea id="pasteCsv" placeholder='"Código (SKU)";"Código de Barras";"Nome do Produto";"Unidade de Medida";"Valor de Venda"&#10;"399";"7622202288937";"BARRA DE CHOCOLATE...";"Unidade (Un)";"R$ 12,38"'></textarea>
-<div class="row"><button id="parsePaste">Importar texto colado</button><button class="secondary" id="clearPaste">Limpar campo</button></div>
-<div id="importStatus" class="status">Nenhuma lista importada nesta sessão.</div>
+<h2>1. Importar cadastro de produtos (JSON)</h2>
+<p class="muted">Importe primeiro o arquivo JSON exportado pelo ConnectPlug. O cadastro será guardado neste navegador para uso nas próximas semanas.</p>
+<label for="masterFile">Selecionar cadastro .JSON</label><input type="file" id="masterFile" accept=".json,application/json">
+<div id="masterStatus" class="status">Nenhum cadastro JSON importado.</div>
+<div class="stats"><div class="stat"><b id="masterCount">0</b><span>Produtos no cadastro</span></div><div class="stat"><b id="masterIssues">0</b><span>Sem EAN ou dados</span></div><div class="stat"><b id="salesCount">0</b><span>Produtos na semana</span></div></div>
+</div>
+<div class="card">
+<h2>2. Importar relatório semanal de vendas (CSV)</h2>
+<p class="muted">O CSV será cruzado com o cadastro JSON pelo SKU. As linhas com código "---" e "Total:" serão ignoradas. Na quantidade, será considerado apenas o trecho antes do ponto: 1.000 → 1; 4.0000 → 4.</p>
+<label for="csvFile">Selecionar relatório semanal .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
+<div id="importStatus" class="status">Nenhum relatório semanal importado.</div>
 <div id="importPreview" class="hidden">
-<div class="stats"><div class="stat"><b id="countProducts">0</b><span>Produtos</span></div><div class="stat"><b id="countIssues">0</b><span>Alertas</span></div><div class="stat"><b id="countPrices">0</b><span>Com preço próprio</span></div></div>
-<div class="table-wrap"><table><thead><tr><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Seu preço</th></tr></thead><tbody id="previewRows"></tbody></table></div>
-<p class="muted">A prévia mostra até 10 produtos. Os códigos são tratados como texto para preservar zeros à esquerda.</p>
+<div class="table-wrap"><table><thead><tr><th>SKU</th><th>EAN</th><th>Produto</th><th class="num">Quantidade</th><th class="num">Valor vendido</th><th class="num">Seu preço</th><th>Correspondência</th></tr></thead><tbody id="previewRows"></tbody></table></div>
+<p class="muted">A prévia mostra até 10 produtos. Produtos sem correspondência no cadastro serão sinalizados para conferência.</p>
 </div>
 </div>
 <div class="card">
@@ -110,7 +114,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 'use strict';
 const $=id=>document.getElementById(id);
 const STORE='pesquisa_precos_v1';
-let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null;
+let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null; db.masterCatalog=db.masterCatalog||[];
 
 function loadDb(){try{return JSON.parse(localStorage.getItem(STORE))||{lists:{},collections:{}}}catch(e){return {lists:{},collections:{}}}}
 function saveDb(){localStorage.setItem(STORE,JSON.stringify(db));renderSaved();$('headerCount').textContent=products.length?products.length+' produtos':'Sem lista'}
@@ -127,46 +131,74 @@ function parseCSV(text){
  row.push(field);if(row.some(x=>x.trim()!==''))rows.push(row);
  if(rows.length<2)throw Error('Não encontrei cabeçalho e linhas de produtos.');
  const headers=rows.shift().map(x=>norm(x).replace(/[^a-z0-9]/g,''));
- function findHeader(keys){return headers.findIndex(h=>keys.some(k=>h.includes(k)))}
- const ix={
- sku:findHeader(['codigosku','sku','codigo']),
- ean:findHeader(['codigodebarras','ean','gtin','codigodebarra']),
- name:findHeader(['nomedoproduto','descricao','produto']),
- unit:findHeader(['unidadedemedida','unidade']),
- own:findHeader(['valordevenda','preco','valor'])
- };
- if(ix.sku<0||ix.ean<0||ix.name<0)throw Error('Cabeçalhos obrigatórios não identificados. Use Código (SKU), Código de Barras e Nome do Produto.');
- const result=[];
- rows.forEach((r,i)=>{const get=k=>ix[k]>=0?String(r[ix[k]]??'').trim():'';const sku=get('sku'),ean=get('ean'),name=get('name');if(!sku&&!ean&&!name)return;
- result.push({id:sku||('linha_'+(i+2)),sku,ean,name,unit:get('unit'),ownRaw:get('own'),own:money(get('own')),row:i+2})});
- if(!result.length)throw Error('Nenhum produto foi encontrado.');
- return result;
+ return {headers,rows};
 }
 function money(v){if(v===null||v===undefined||String(v).trim()==='')return null;let s=String(v).trim().replace(/R\$/gi,'').replace(/\s/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=Number(s);return Number.isFinite(n)?Math.round(n*100)/100:null}
-function brl(v){return v===null||v===undefined||v===''?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function csvCell(v){let s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
-function download(name,content,type='text/csv;charset=utf-8;'){const blob=new Blob(['\uFEFF',content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
-function slug(s){return String(s||'pesquisa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')}
-function listId(){return $('week').value.trim()||new Date().toISOString().slice(0,10)}
-function colId(market,week){return slug(market)+'__'+slug(week)}
-function collection(){return db.collections[currentKey]}
-function productPrice(p){return collection()?.prices?.[p.id]||null}
-function setStatus(id,msg,kind=''){const el=$(id);el.className='status'+(kind?' '+kind:'');el.textContent=msg}
-function importText(text){
+function quantityInteger(v){
+ const s=String(v??'').trim();
+ if(!s)return 0;
+ // Regra do relatório: considerar somente o trecho anterior ao ponto.
+ const whole=s.split('.')[0].replace(/[^\d-]/g,'');
+ const n=parseInt(whole,10);
+ return Number.isFinite(n)?n:0;
+}
+function skuKey(v){return String(v??'').trim().replace(/\.0+$/,'')}
+function parseMasterJson(text){
+ const raw=JSON.parse(text);
+ const arr=Array.isArray(raw)?raw:(Array.isArray(raw.produtos)?raw.produtos:null);
+ if(!arr)throw Error('O JSON deve conter uma lista de produtos.');
+ const out=arr.map((o,i)=>{
+   const get=(...keys)=>{for(const k of keys)if(o[k]!==undefined&&o[k]!==null)return String(o[k]).trim();return ''};
+   const sku=get('Código (SKU)','Codigo (SKU)','SKU','sku','codigo');
+   return {id:sku||('cadastro_'+(i+1)),sku,ean:get('Código de Barras','Codigo de Barras','EAN','ean','GTIN'),name:get('Nome do Produto','Nome do Produto','Produto','produto','Nome','nome'),unit:get('Unidade de Medida','Unidade de Medida','Unidade','unidade'),ownRaw:get('Valor de Venda','Valor de Venda','Preço','Preco','Valor','valor'),own:money(get('Valor de Venda','Valor de Venda','Preço','Preco','Valor','valor'))};
+ }).filter(p=>p.sku);
+ if(!out.length)throw Error('Nenhum produto com SKU foi encontrado no JSON.');
+ const map=new Map();out.forEach(p=>map.set(skuKey(p.sku),p));
+ return [...map.values()];
+}
+function importMaster(text){
  try{
-  const parsed=parseCSV(text),week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
-  products=parsed;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
-  $('countProducts').textContent=products.length;$('countIssues').textContent=products.filter(p=>!p.ean||!p.name||p.own===null).length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;
-  $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td></tr>`).join('');
+  const catalog=parseMasterJson(text);db.masterCatalog=catalog;saveDb();
+  $('masterCount').textContent=catalog.length;
+  $('masterIssues').textContent=catalog.filter(p=>!p.ean||!p.name||p.own===null).length;
+  setStatus('masterStatus',`Cadastro importado com sucesso: ${catalog.length} produtos. Agora importe o CSV semanal.`,'ok');
+ }catch(e){setStatus('masterStatus',e.message||'Falha ao importar JSON.','err')}
+}
+function importSales(text){
+ try{
+  if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');
+  const parsed=parseCSV(text),headers=parsed.headers;
+  function findHeader(keys){return headers.findIndex(h=>keys.some(k=>h===k||h.includes(k)))}
+  const ix={sku:findHeader(['codigo','codigosku','sku']),name:findHeader(['produto','descricao','nomedoproduto']),qty:findHeader(['quantidade','qtd']),value:findHeader(['valor','valortotal','totalvenda','venda'])};
+  if(ix.sku<0||ix.qty<0||ix.value<0)throw Error('Não identifiquei as colunas Código, Quantidade e Valor no CSV.');
+  const catalog=new Map(db.masterCatalog.map(p=>[skuKey(p.sku),p]));
+  const get=(r,k)=>ix[k]>=0?String(r[ix[k]]??'').trim():'';
+  const sales=[],unmatched=[];
+  parsed.rows.forEach((r,i)=>{
+    const sku=get(r,'sku');
+    if(!sku||sku==='---'||norm(sku)==='total:')return;
+    const nameCsv=get(r,'name');
+    if(norm(nameCsv)==='total:'||norm(sku)==='total')return;
+    const master=catalog.get(skuKey(sku));
+    const qty=quantityInteger(get(r,'qty'));
+    const salesValue=money(get(r,'value'));
+    const p=master?{...master}:{id:sku,sku,ean:'',name:nameCsv||'(Produto não encontrado no cadastro)',unit:'',own:null,ownRaw:''};
+    sales.push({...p,id:sku,sku,quantity:qty,salesValue,salesName:nameCsv,matched:!!master,row:i+2});
+    if(!master)unmatched.push(sku);
+  });
+  if(!sales.length)throw Error('Nenhum produto válido foi encontrado no CSV.');
+  const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
+  products=sales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
+  $('salesCount').textContent=products.length;
+  $('countProducts').textContent=products.length;$('countIssues').textContent=unmatched.length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;
+  $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched?'Encontrado':'<span class="tag pending">Não encontrado</span>'}</td></tr>`).join('');
   $('importPreview').classList.remove('hidden');$('week').value=week;
-  setStatus('importStatus',`Importação concluída: ${products.length} produtos. Confira a prévia e vá para “Coletar preços”.`,'ok');
+  setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.`,'ok');
   renderSaved();refreshCompare();
  }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
 }
-$('csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{importText(await f.text())}catch(err){setStatus('importStatus','Não foi possível ler o arquivo: '+err.message,'err')}});
-$('parsePaste').addEventListener('click',()=>importText($('pasteCsv').value));
-$('clearPaste').addEventListener('click',()=>{$('pasteCsv').value=''});
+$('masterFile').addEventListener('change',async e=>{const f=e.target.files[0];if(f)importMaster(await f.text())});
+$('csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{importSales(await f.text())}catch(err){setStatus('importStatus','Não foi possível ler o arquivo: '+err.message,'err')}});
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='compare')refreshCompare();if(t==='import')renderSaved()}
 function renderSaved(){
@@ -237,15 +269,15 @@ function refreshCompare(){
 $('refreshCompare').addEventListener('click',refreshCompare);
 function csvForCollection(c){
  const l=db.lists[c.listId],ps=l?.products||products;
- const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Valor de Venda','Supermercado','Referência','Preço Coletado','Status','Data/Hora']];
- ps.forEach(p=>{const r=c.prices?.[p.id];rows.push([p.sku,p.ean,p.name,p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),c.market,c.week,r?.price===null||r?.price===undefined?'':Number(r.price).toFixed(2).replace('.',','),r?.status==='done'?'Coletado':r?.status==='unavailable'?'Indisponível':'Pendente',r?.updated||''])});
+ const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Valor de Venda','Quantidade Vendida','Valor Total Vendido','Supermercado','Referência','Preço Coletado','Status','Data/Hora']];
+ ps.forEach(p=>{const r=c.prices?.[p.id];rows.push([p.sku,p.ean,p.name,p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),c.market,c.week,r?.price===null||r?.price===undefined?'':Number(r.price).toFixed(2).replace('.',','),r?.status==='done'?'Coletado':r?.status==='unavailable'?'Indisponível':'Pendente',r?.updated||''])});
  return rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
 }
 $('exportSingle').addEventListener('click',()=>{const market=$('exportMarket').value,week=$('exportWeek').value,c=Object.values(db.collections).find(x=>x.market===market&&x.week===week);if(!c){setStatus('compareStatus','Não encontrei coleta para essa seleção.','err');return}download(`precos_${slug(market)}_${slug(week)}.csv`,csvForCollection(c))});
 $('exportCompare').addEventListener('click',()=>{
  const cols=Object.values(db.collections);if(!products.length||!cols.length){setStatus('compareStatus','Não há dados para exportar.','err');return}
- const markets=[...new Set(cols.map(c=>c.market))].sort();const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Seu preço',...markets,'Menor preço']];
- products.forEach(p=>{const vals=markets.map(m=>{let v=null;cols.filter(c=>c.market===m).forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(v===null||r.price<v))v=r.price});return v});const valid=vals.filter(v=>v!==null);rows.push([p.sku,p.ean,p.name,p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),...vals.map(v=>v===null?'':Number(v).toFixed(2).replace('.',',')),valid.length?Number(Math.min(...valid)).toFixed(2).replace('.',','):''])});
+ const markets=[...new Set(cols.map(c=>c.market))].sort();const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Quantidade Vendida','Valor Total Vendido','Seu preço',...markets,'Menor preço']];
+ products.forEach(p=>{const vals=markets.map(m=>{let v=null;cols.filter(c=>c.market===m).forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(v===null||r.price<v))v=r.price});return v});const valid=vals.filter(v=>v!==null);rows.push([p.sku,p.ean,p.name,p.unit,p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),p.own===null?'':Number(p.own).toFixed(2).replace('.',','),...vals.map(v=>v===null?'':Number(v).toFixed(2).replace('.',',')),valid.length?Number(Math.min(...valid)).toFixed(2).replace('.',','):''])});
  download(`comparativo_precos_${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvCell).join(';')).join('\r\n'));
 });
 $('fullscreenBarcode').addEventListener('click',()=>{const p=products.find(x=>x.id===currentProductId);if(!p?.ean)return;try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});$('bigEan').textContent=p.ean;$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}); 
@@ -255,7 +287,7 @@ $('exportBackup').addEventListener('click',()=>download(`backup_pesquisa_precos_
 $('importBackupBtn').addEventListener('click',()=>$('backupFile').click());
 $('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!x.lists||!x.collections)throw Error('Formato de backup inválido.');db=x;products=db.activeList&&db.lists[db.activeList]?db.lists[db.activeList].products:[];saveDb();setStatus('importStatus','Backup restaurado.','ok');renderSaved()}catch(err){setStatus('importStatus','Falha ao restaurar backup: '+err.message,'err')}});
 window.addEventListener('load',()=>{
- if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('countProducts').textContent=products.length;$('countIssues').textContent=products.filter(p=>!p.ean||!p.name||p.own===null).length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${brl(p.own)}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
+ if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('countProducts').textContent=products.length;$('countIssues').textContent=products.filter(p=>!p.matched).length;$('countPrices').textContent=products.filter(p=>p.own!==null).length;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
  renderSaved();refreshCompare();
 });
 })();
