@@ -25,7 +25,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </style>
 </head>
 <body>
-<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • versão 3.2</small></div><span id="headerCount">Sem lista</span></div></header>
+<header><div class="top"><div><h1>Pesquisa de Preços</h1><small>Coleta presencial • CSV • comparação • versão 3.3</small></div><span id="headerCount">Sem lista</span></div></header>
 <main>
 <nav class="tabs" aria-label="Seções">
 <button class="tab active" data-tab="import">1. Importar arquivos</button>
@@ -155,6 +155,7 @@ function quantityInteger(v){
  const n=parseInt(whole,10);
  return Number.isFinite(n)?n:0;
 }
+function sortByQuantityDesc(items){return [...items].sort((a,b)=>{const qa=Math.max(0,Number.parseInt(String(a.quantity??'0'),10)||0);const qb=Math.max(0,Number.parseInt(String(b.quantity??'0'),10)||0);return qb-qa;});}
 function skuKey(v){return String(v??'').trim().replace(/\.0+$/,'')}
 function parseMasterJson(text){
  const raw=JSON.parse(text);
@@ -200,8 +201,9 @@ function importSales(text){
     if(!master)unmatched.push(sku);
   });
   if(!sales.length)throw Error('Nenhum produto válido foi encontrado no CSV.');
+  const sortedSales=sortByQuantityDesc(sales);
   const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
-  products=sales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
+  products=sortedSales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
   $('salesCount').textContent=products.length;
   $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td class="num">${p.quantity}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched?'Encontrado':'<span class="tag pending">Não encontrado</span>'}</td></tr>`).join('');
   $('importPreview').classList.remove('hidden');$('week').value=week;
@@ -278,7 +280,7 @@ function refreshCompare(showFeedback=false){
  // Os totais são acumulados em centavos, sem arredondamentos intermediários.
  const marketTotals=markets.map(()=>({cents:0,count:0}));
  let overallCents=0,overallCount=0;
- const compareRows=products.map(p=>{
+ const compareRows=sortByQuantityDesc(products).map(p=>{
   const vals=markets.map(m=>{
    let best=null;
    cols.filter(c=>c.market===m).forEach(c=>{
