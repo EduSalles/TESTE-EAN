@@ -103,7 +103,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <section id="view-compare" class="hidden">
 <div class="card">
 <h2>Comparativo de preços</h2><p class="muted">Compare as pesquisas salvas. Preços em branco ou marcados como indisponíveis não entram no cálculo do menor preço.</p>
-<div class="row"><button id="refreshCompare">Atualizar comparativo</button><button class="secondary" id="exportCompare">Exportar comparativo CSV</button></div>
+<div class="row"><button id="refreshCompare">Atualizar comparativo</button><button class="secondary" id="exportCompare">Exportar comparativo CSV</button><button class="secondary" id="exportComparePdf">Exportar comparativo PDF</button></div>
 <div id="compareStatus" class="status">Importe produtos e registre preços para gerar o comparativo.</div>
 <div class="table-wrap"><table><thead id="compareHead"></thead><tbody id="compareRows"></tbody></table></div>
 </div>
@@ -373,6 +373,27 @@ function csvForCollection(c){
  return rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
 }
 $('exportSingle').addEventListener('click',()=>{const market=$('exportMarket').value,week=$('exportWeek').value,c=Object.values(db.collections).find(x=>x.market===market&&x.week===week);if(!c){setStatus('compareStatus','Não encontrei coleta para essa seleção.','err');return}download(`precos_${slug(market)}_${slug(week)}.csv`,csvForCollection(c))});
+$('exportComparePdf').addEventListener('click',()=>{
+ const cols=Object.values(db.collections||{});
+ if(!products.length||!cols.length){setStatus('compareStatus','Não há dados para exportar.','err');return}
+ refreshCompare(false);
+ const table=document.querySelector('#view-compare .table-wrap table');
+ if(!table||!$('compareRows').children.length){setStatus('compareStatus','Não há dados no comparativo para exportar.','err');return}
+ const printWindow=window.open('','_blank');
+ if(!printWindow){setStatus('compareStatus','O navegador bloqueou a janela do PDF. Permita pop-ups para este site e tente novamente.','err');return}
+ const title='Comparativo de preços';
+ const date=new Date().toLocaleString('pt-BR');
+ const cloned=table.cloneNode(true);
+ cloned.querySelectorAll('th,td').forEach(cell=>{
+  cell.style.position='static';cell.style.whiteSpace='normal';cell.style.overflowWrap='anywhere';
+  cell.style.border='1px solid #cbd5e1';cell.style.padding='5px';cell.style.fontSize='9px';
+  if(cell.classList.contains('best-price-cell')){cell.style.backgroundColor='#ffeb3b';cell.style.color='#000';cell.style.fontWeight='800';cell.style.printColorAdjust='exact';cell.style.webkitPrintColorAdjust='exact'}
+ });
+ const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${title}</title><style>
+ @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font:10px Arial,sans-serif;color:#172033;margin:0}h1{font-size:18px;margin:0 0 5px}p{font-size:10px;margin:0 0 12px;color:#475569}table{width:100%;border-collapse:collapse;table-layout:auto}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th{background:#eaf0f8;font-weight:bold}thead .totals-row th{background:#ecfdf3;color:#05603a}th,td{border:1px solid #cbd5e1;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th.num,td.num{text-align:right;white-space:normal}.best-price-cell{background:#ffeb3b!important;color:#000!important;font-weight:800!important;-webkit-print-color-adjust:exact;print-color-adjust:exact} .totals-row th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ </style></head><body><h1>${title}</h1><p>Gerado em ${date} · ${products.length} produtos · Valores em reais (R$)</p>${cloned.outerHTML}<script>window.onload=()=>{setTimeout(()=>{window.print()},350)};window.onafterprint=()=>window.close();<\/script></body></html>`;
+ printWindow.document.open();printWindow.document.write(html);printWindow.document.close();
+});
 $('exportCompare').addEventListener('click',()=>{
  const cols=Object.values(db.collections);if(!products.length||!cols.length){setStatus('compareStatus','Não há dados para exportar.','err');return}
  const markets=[...new Set(cols.map(c=>c.market))].sort();const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Unidade de Medida','Quantidade Vendida','Valor Total Vendido','Seu preço',...markets,'Menor preço']];
