@@ -79,7 +79,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <div class="product-layout">
 <div>
 <div class="ean-label">DESCRIÇÃO DO PRODUTO</div><div class="product-name" id="productName">—</div>
-<div class="ean-label">CÓDIGO EAN</div><div class="ean-number" id="productEan">—</div>
+<div class="ean-label">CÓDIGO EAN</div><div class="ean-number" id="productEan" role="button" tabindex="0" title="Toque para ampliar o código EAN" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted">—</div>
 <div class="barcode-wrap"><svg id="barcode" class="barcode" role="img" aria-label="Código de barras"></svg><div id="barcodeFallback" class="muted hidden">Código de barras indisponível; confira o EAN acima.</div></div>
 <p class="muted" id="skuUnit">SKU: —</p>
 </div>
@@ -89,7 +89,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <input id="marketPrice" class="price-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00">
 <div class="scan-actions"><button id="confirmPrice">Salvar e próximo ↵</button><button class="secondary" id="markUnavailable">Indisponível</button></div>
 <div class="scan-actions"><button class="secondary" id="previousProduct">← Anterior</button><button class="secondary" id="skipProduct">Pular →</button></div>
-<button class="dark" id="fullscreenBarcode">EAN em tela cheia</button>
+
 <p class="muted">Digite o preço exibido no consultor. O salvamento avança automaticamente. Se o leitor não ler a tela, use o EAN impresso na embalagem ou registre o preço manualmente.</p>
 </div>
 </div>
@@ -400,7 +400,9 @@ $('exportCompare').addEventListener('click',()=>{
  products.forEach(p=>{const vals=markets.map(m=>{let v=null;cols.filter(c=>c.market===m).forEach(c=>{const r=c.prices?.[p.id];if(r?.status==='done'&&r.price!==null&&(v===null||r.price<v))v=r.price});return v});const valid=vals.filter(v=>v!==null);rows.push([p.sku,p.ean,p.name,p.unit,p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),p.own===null?'':Number(p.own).toFixed(2).replace('.',','),...vals.map(v=>v===null?'':Number(v).toFixed(2).replace('.',',')),valid.length?Number(Math.min(...valid)).toFixed(2).replace('.',','):''])});
  download(`comparativo_precos_${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvCell).join(';')).join('\r\n'));
 });
-$('fullscreenBarcode').addEventListener('click',()=>{const p=products.find(x=>x.id===currentProductId);if(!p?.ean)return;try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});$('bigEan').textContent=p.ean;$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}); 
+function showBarcodeFullscreen(){const p=products.find(x=>x.id===currentProductId);if(!p?.ean){alert('Este produto não possui código EAN.');return}try{const f=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('bigBarcode'),p.ean,{format:f,width:3.2,height:145,displayValue:false,margin:12});$('bigEan').textContent=p.ean;$('fullscreen').classList.add('show');if($('fullscreen').requestFullscreen)$('fullscreen').requestFullscreen().catch(()=>{})}catch(e){alert('Não foi possível gerar o código para este EAN.')}}
+$('productEan').addEventListener('click',showBarcodeFullscreen);
+$('productEan').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showBarcodeFullscreen()}}); 
 $('closeFullscreen').addEventListener('click',()=>{ $('fullscreen').classList.remove('show');if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})});
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('fullscreen').classList.remove('show')});
 $('exportBackup').addEventListener('click',()=>download(`backup_pesquisa_precos_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,2),'application/json'));
