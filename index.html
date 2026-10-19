@@ -52,14 +52,17 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </div>
 </div>
 <div class="card">
-<h2>2. Importar relatório semanal de vendas (CSV)</h2>
+<h2>2. Importar relatório de Vendas no período (CSV)</h2>
 <p class="muted">O CSV será cruzado com o cadastro JSON pelo SKU. As linhas com código "---" e "Total:" serão ignoradas. Na quantidade, será considerado apenas o trecho antes do ponto: 1.000 → 1; 4.0000 → 4.</p>
 <label for="csvFile">Selecionar relatório semanal .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
 <button id="importSalesBtn" style="margin-top:8px;width:100%">Processar relatório CSV</button>
 <div id="importStatus" class="status">Nenhum relatório semanal importado.</div>
-<div id="importPreview" class="hidden">
-<div class="table-wrap"><table><thead><tr><th>SKU</th><th>EAN</th><th>Produto</th><th>Categoria</th><th class="num">Quantidade</th><th class="num">Valor vendido</th><th class="num">Seu preço</th><th>Correspondência</th></tr></thead><tbody id="previewRows"></tbody></table></div>
-<p class="muted">A prévia mostra até 10 produtos. Produtos sem correspondência no cadastro serão sinalizados para conferência.</p>
+<div id="importPreview" class="hidden" style="margin-top:14px">
+<h3>Produtos importados do relatório</h3>
+<p class="muted">Clique nos títulos das colunas para ordenar. Use os filtros para localizar produtos e conferir a correspondência pelo SKU.</p>
+<div class="row"><div style="flex:2;min-width:220px"><label for="salesListSearch">Pesquisar</label><input id="salesListSearch" type="text" placeholder="SKU, EAN, nome ou categoria"></div><div style="flex:1;min-width:180px"><label for="salesMatchFilter">Correspondência</label><select id="salesMatchFilter"><option value="all">Todos os produtos</option><option value="matched">Encontrados no cadastro</option><option value="unmatched">Sem correspondência</option></select></div></div>
+<div class="table-wrap"><table><thead id="salesListHead"></thead><tbody id="previewRows"></tbody></table></div>
+<div class="row" style="align-items:center;margin-top:10px"><button class="secondary" id="salesListPrev" type="button">← Anterior</button><div id="salesListPageInfo" class="status" style="margin:0;text-align:center">Página 1</div><button class="secondary" id="salesListNext" type="button">Próxima →</button></div>
 </div>
 </div>
 <div class="card">
@@ -129,7 +132,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 const $=id=>document.getElementById(id);
 const STORE='pesquisa_precos_v1';
 let db=loadDb(), products=[], currentKey='', sequence=[], seqPos=0, currentProductId=null; db.masterCatalog=db.masterCatalog||[];
-const PAGE_SIZE=50; let catalogPage=0,catalogSort={key:'sku',dir:1},shoppingPage=0,shoppingSort={key:'name',dir:1};
+const PAGE_SIZE=50; let catalogPage=0,catalogSort={key:'sku',dir:1},salesListPage=0,salesListSort={key:'quantity',dir:-1},shoppingPage=0,shoppingSort={key:'name',dir:1};
 
 function loadDb(){try{return JSON.parse(localStorage.getItem(STORE))||{lists:{},collections:{}}}catch(e){return {lists:{},collections:{}}}}
 function saveDb(){localStorage.setItem(STORE,JSON.stringify(db));renderSaved();$('headerCount').textContent=products.length?products.length+' produtos':'Sem lista'}
@@ -260,12 +263,35 @@ async function checkCentralCatalog(){
  }
 }
 
+function renderSalesImportList(){
+ const all=products||[],q=norm($('salesListSearch')?.value||''),mf=$('salesMatchFilter')?.value||'all';
+ const cols=[['sku','Código (SKU)'],['ean','EAN'],['name','Produto'],['category','Categoria'],['quantity','Quantidade'],['salesValue','Valor vendido'],['own','Seu preço'],['matched','Correspondência']];
+ const filtered=all.filter(p=>{const search=!q||norm([p.sku,p.ean,p.name,p.category,p.unit,p.salesName].join(' ')).includes(q);const match=mf==='all'||(mf==='matched'?p.matched!==false:p.matched===false);return search&&match});
+ filtered.sort((a,b)=>{let av=a[salesListSort.key],bv=b[salesListSort.key];if(salesListSort.key==='matched'){av=a.matched===false?0:1;bv=b.matched===false?0:1}else if(['quantity','salesValue','own'].includes(salesListSort.key)){av=av==null?-Infinity:Number(av);bv=bv==null?-Infinity:Number(bv)}else{av=String(av??'');bv=String(bv??'')}let cmp=typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'pt-BR',{numeric:true});return cmp* salesListSort.dir});
+ const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));salesListPage=Math.min(salesListPage,pages-1);const shown=filtered.slice(salesListPage*PAGE_SIZE,(salesListPage+1)*PAGE_SIZE);
+ $('salesListHead').innerHTML='<tr>'+cols.map(([k,label])=>`<th data-sales-sort="${k}" style="cursor:pointer">${label}${salesListSort.key===k?(salesListSort.dir===1?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
+ $('previewRows').innerHTML=shown.map(p=>`<tr><td>${esc(p.sku)}</td><td>${p.ean?`<span class="ean-link" role="button" tabindex="0" data-ean="${esc(p.ean)}" data-name="${esc(p.name)}">${esc(p.ean)}</span>`:'—'}</td><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');
+ $('salesListPageInfo').textContent=`Página ${salesListPage+1} de ${pages} · ${filtered.length.toLocaleString('pt-BR')} produtos`; $('salesListPrev').disabled=salesListPage===0;$('salesListNext').disabled=salesListPage>=pages-1;
+ $('salesListHead').querySelectorAll('[data-sales-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.salesSort;if(salesListSort.key===k)salesListSort.dir*=-1;else{salesListSort.key=k;salesListSort.dir=['quantity','salesValue','own'].includes(k)?-1:1}renderSalesImportList()});
+}
+
 function importSales(text){
  try{
   if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');
   const parsed=parseCSV(text),headers=parsed.headers;
-  function findHeader(keys){return headers.findIndex(h=>keys.some(k=>h===k||h.includes(k)))}
-  const ix={sku:findHeader(['codigo','codigosku','sku']),name:findHeader(['produto','descricao','nomedoproduto']),qty:findHeader(['quantidade','qtd']),value:findHeader(['valor','valortotal','totalvenda','venda'])};
+  // Prioriza correspondência exata dos cabeçalhos normalizados.
+  // Isso evita confundir 'Código (SKU)' com 'Código de Barras'.
+  function findHeader(exactKeys, partialKeys=[]){
+   let idx=headers.findIndex(h=>exactKeys.includes(h));
+   if(idx>=0)return idx;
+   return headers.findIndex(h=>partialKeys.some(k=>h.includes(k)));
+  }
+  const ix={
+   sku:findHeader(['codigosku','sku','codigo'],['codigosku','sku']),
+   name:findHeader(['produto','descricao','nomedoproduto'],['nomedoproduto','descricao','produto']),
+   qty:findHeader(['quantidade','qtd'],['quantidade','qtd']),
+   value:findHeader(['valortotalvendido','valortotal','totalvenda','valor','venda'],['valortotalvendido','valortotal','totalvenda','venda','valor'])
+  };
   if(ix.sku<0||ix.qty<0||ix.value<0)throw Error('Não identifiquei as colunas Código, Quantidade e Valor no CSV.');
   const catalog=new Map(db.masterCatalog.map(p=>[skuKey(p.sku),p]));
   const get=(r,k)=>ix[k]>=0?String(r[ix[k]]??'').trim():'';
@@ -287,15 +313,15 @@ function importSales(text){
   const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
   products=sortedSales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
   $('salesCount').textContent=products.length;
-  $('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td class="num">${p.quantity}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched?'Encontrado':'<span class="tag pending">Não encontrado</span>'}</td></tr>`).join('');
-  $('importPreview').classList.remove('hidden');$('week').value=week;
-  setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.`,'ok');
+  salesListPage=0;$('salesListSearch').value='';$('salesMatchFilter').value='all';$('importPreview').classList.remove('hidden');renderSalesImportList();$('week').value=week;
+  setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro pelo SKU; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.` , unmatched.length ? '' : 'ok');
   renderSaved();refreshCompare();
  }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
 }
 $('masterFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('masterStatus',`Arquivo selecionado: ${f.name}. Clique em “Importar cadastro JSON”.`)});
 $('csvFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('importStatus',`Arquivo selecionado: ${f.name}. Clique em “Processar relatório CSV”.`)});
 $('importMasterBtn').addEventListener('click',async()=>{const f=$('masterFile').files[0];if(!f){setStatus('masterStatus','Selecione primeiro o arquivo JSON.','err');return}setStatus('masterStatus','Lendo e validando o cadastro JSON...');try{importMaster(await f.text())}catch(err){setStatus('masterStatus','Erro ao ler o JSON: '+(err.message||err),'err')}});
+$('salesListSearch').addEventListener('input',()=>{salesListPage=0;renderSalesImportList()});$('salesMatchFilter').addEventListener('change',()=>{salesListPage=0;renderSalesImportList()});$('salesListPrev').addEventListener('click',()=>{salesListPage=Math.max(0,salesListPage-1);renderSalesImportList()});$('salesListNext').addEventListener('click',()=>{salesListPage++;renderSalesImportList()});
 $('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}setStatus('importStatus','Lendo e processando o relatório CSV...');try{importSales(await f.text())}catch(err){setStatus('importStatus','Erro ao ler o CSV: '+(err.message||err),'err')}});
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='compare')refreshCompare();if(t==='import'){renderSaved();if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList()}}
@@ -446,7 +472,7 @@ $('exportBackup').addEventListener('click',()=>download(`backup_pesquisa_precos_
 $('importBackupBtn').addEventListener('click',()=>$('backupFile').click());
 $('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!x.lists||!x.collections)throw Error('Formato de backup inválido.');db=x;products=db.activeList&&db.lists[db.activeList]?db.lists[db.activeList].products:[];saveDb();setStatus('importStatus','Backup restaurado.','ok');renderSaved()}catch(err){setStatus('importStatus','Falha ao restaurar backup: '+err.message,'err')}});
 window.addEventListener('load',()=>{
- if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');$('previewRows').innerHTML=products.slice(0,10).map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.ean)}</td><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td class="num">${p.quantity??''}</td><td class="num">${brl(p.salesValue)}</td><td class="num">${brl(p.own)}</td><td>${p.matched===false?'<span class="tag pending">Não encontrado</span>':'Encontrado'}</td></tr>`).join('');setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
+ if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');renderSalesImportList();setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
  renderSaved();refreshCompare();
  if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList();
  checkCentralCatalog();
