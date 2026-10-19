@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132238">
-<title>Pesquisa de Preços v3.6 - Cadastro e Lista de Compras</title>
+<title>Pesquisa de Preços v3.8 - Coleta rápida</title>
 <style>
 :root{--navy:#132238;--blue:#155eef;--pale:#eef4ff;--green:#067647;--red:#b42318;--border:#d6deea;--muted:#5d6b82}
 *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172033;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -76,12 +76,8 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <section id="view-collect" class="hidden">
 <div class="card">
 <h2>Coletar preços manualmente</h2>
-<p class="muted">O aplicativo apresenta o código de barras para leitura no app Menor Preço. Digite o supermercado e o preço encontrado para cada produto; o registro será salvo individualmente.</p>
-<div class="grid two">
-<div><label for="supermarket">Nome do supermercado (pode mudar a cada produto)</label><input id="supermarket" type="text" list="marketOptions" placeholder="Digite o supermercado deste produto"><datalist id="marketOptions"><option value="Condor"><option value="Muffato"><option value="Carrefour"><option value="Festval"></datalist></div>
-<div><label for="week">Referência da pesquisa</label><input id="week" type="text" placeholder="Ex.: 2026-10-14"></div>
-</div>
-<label for="order">Ordem dos produtos</label><select id="order"><option value="list">Ordem Decrescente de Qtde.</option><option value="pending">Pendentes primeiro</option></select>
+<p class="muted">Inicie a coleta e, para cada produto, selecione ou digite o supermercado e informe o preço usando apenas números: 400 = R$ 4,00; 478 = R$ 4,78. A referência será definida automaticamente pela data da coleta.</p>
+<label for="order">Ordem dos produtos</label><select id="order"><option value="list">Ordem Decrescente de Qtde.</option><option value="pending">Pendentes primeiro</option><option value="description">Descrição dos Produtos (A–Z)</option></select>
 <div class="row"><button id="startCollect">Iniciar / continuar coleta</button><button class="secondary" id="openList">Ver lista de produtos</button></div>
 <div id="collectStatus" class="status">Importe uma lista na primeira aba para começar.</div>
 </div>
@@ -96,13 +92,14 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <p class="muted" id="skuUnit">SKU: —</p>
 </div>
 <div>
+<label for="supermarket">SUPERMERCADO</label><input id="supermarket" type="text" list="marketOptions" autocomplete="off" placeholder="Escolha ou digite o supermercado"><datalist id="marketOptions"><option value="Condor"><option value="Muffato"><option value="Carrefour"><option value="Festval"></datalist>
 <div class="status" id="ownPrice">Preço da sua loja: —</div>
-<label class="price-label" for="marketPrice">PREÇO ENCONTRADO NO SUPERMERCADO (R$)</label>
-<input id="marketPrice" class="price-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00">
+<label class="price-label" for="marketPrice">PREÇO ENCONTRADO (R$)</label>
+<input id="marketPrice" class="price-input" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Ex.: 478 = R$ 4,78">
 <div class="scan-actions"><button id="confirmPrice">Salvar e próximo ↵</button><button class="secondary" id="markUnavailable">Indisponível</button></div>
 <div class="scan-actions"><button class="secondary" id="previousProduct">← Anterior</button><button class="secondary" id="skipProduct">Pular →</button></div>
 
-<p class="muted">Abra o app Menor Preço e leia o código de barras apresentado nesta tela. Depois, informe o nome do supermercado e o preço encontrado. Ao salvar, o registro fica associado a este produto do relatório semanal.</p>
+<p class="muted">Abra o app Menor Preço e leia o código de barras apresentado nesta tela. Selecione ou digite o supermercado e informe somente os números do preço, sem vírgula ou ponto. Ex.: 478 será salvo como R$ 4,78.</p>
 </div>
 </div>
 </div>
@@ -159,7 +156,7 @@ function brl(v){return v===null||v===undefined||v===''?'—':Number(v).toLocaleS
 function slug(s){return String(s||'pesquisa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')}
 function csvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
 function download(name,content,type='text/csv;charset=utf-8;'){const blob=new Blob([type.includes('json')?'': '\uFEFF',content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
-function listId(){return $('week').value.trim()||new Date().toISOString().slice(0,10)}
+function listId(){return new Date().toISOString().slice(0,10)}
 function colId(market,week){return slug(market)+'__'+slug(week)}
 function collection(){return db.collections[currentKey]}
 function productPrice(p){return collection()?.prices?.[p.id]||null}
@@ -327,7 +324,7 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>show
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='compare')refreshCompare();if(t==='import'){renderSaved();if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList()}}
 function renderSaved(){
  const el=$('savedList'),entries=Object.values(db.collections||{});
- if(!entries.length){el.textContent='Nenhuma pesquisa salva.'}else{el.innerHTML=entries.map(c=>{const n=Object.keys(c.prices||{}).filter(k=>c.prices[k]?.status==='done'||c.prices[k]?.status==='unavailable').length;return `<div style="padding:9px 0;border-bottom:1px solid #e4e9f0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>${esc(c.market)}</b> · ${esc(c.week)} — ${n} registros</div><div style="display:flex;gap:8px"><button class="secondary" style="width:auto;min-height:34px;padding:5px 9px;margin:0" data-resume="${esc(c.key)}">Abrir</button><button class="danger" style="width:auto;min-height:34px;padding:5px 9px;margin:0" data-delete="${esc(c.key)}">Excluir</button></div></div>`}).join('');el.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>{const c=db.collections[b.dataset.resume];if(!c)return;$('supermarket').value=c.market;$('week').value=c.week;currentKey=c.key;products=productsForCollection(c);showTab('collect');prepareSequence(true)});el.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{const key=b.dataset.delete,c=db.collections[key];if(!c)return;if(!confirm(`Excluir a pesquisa de ${c.market} da referência ${c.week}? Os preços registrados nessa pesquisa serão removidos. Esta ação não pode ser desfeita.`))return;delete db.collections[key];if(currentKey===key){currentKey='';$('collector').classList.add('hidden');setStatus('collectStatus','Pesquisa excluída. Selecione um supermercado para iniciar outra coleta.','ok')}saveDb();refreshCompare();setStatus('importStatus',`Pesquisa de ${c.market} (${c.week}) excluída.`,'ok')})}
+ if(!entries.length){el.textContent='Nenhuma pesquisa salva.'}else{el.innerHTML=entries.map(c=>{const n=Object.keys(c.prices||{}).filter(k=>c.prices[k]?.status==='done'||c.prices[k]?.status==='unavailable').length;return `<div style="padding:9px 0;border-bottom:1px solid #e4e9f0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>${esc(c.market)}</b> · ${esc(c.week)} — ${n} registros</div><div style="display:flex;gap:8px"><button class="secondary" style="width:auto;min-height:34px;padding:5px 9px;margin:0" data-resume="${esc(c.key)}">Abrir</button><button class="danger" style="width:auto;min-height:34px;padding:5px 9px;margin:0" data-delete="${esc(c.key)}">Excluir</button></div></div>`}).join('');el.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>{const c=db.collections[b.dataset.resume];if(!c)return;$('supermarket').value=c.market;currentKey=c.key;products=productsForCollection(c);showTab('collect');prepareSequence(true)});el.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{const key=b.dataset.delete,c=db.collections[key];if(!c)return;if(!confirm(`Excluir a pesquisa de ${c.market} da referência ${c.week}? Os preços registrados nessa pesquisa serão removidos. Esta ação não pode ser desfeita.`))return;delete db.collections[key];if(currentKey===key){currentKey='';$('collector').classList.add('hidden');setStatus('collectStatus','Pesquisa excluída. Selecione um supermercado para iniciar outra coleta.','ok')}saveDb();refreshCompare();setStatus('importStatus',`Pesquisa de ${c.market} (${c.week}) excluída.`,'ok')})}
  const markets=[...new Set(entries.map(c=>c.market))];$('exportMarket').innerHTML=markets.map(m=>`<option>${esc(m)}</option>`).join('');updateWeekOptions();
 }
 function productsForCollection(c){const l=db.lists[c.listId];return l?.products||products||[]}
@@ -341,25 +338,26 @@ function ensureCollection(market,week=listId()){
 }
 $('startCollect').addEventListener('click',()=>{
  if(!products.length){setStatus('collectStatus','Importe primeiro o relatório semanal CSV.','err');return}
- const market=$('supermarket').value.trim();if(!market){setStatus('collectStatus','Informe um supermercado inicial. Você poderá alterá-lo para cada produto.','err');return}
- const c=ensureCollection(market);currentKey=c.key;saveDb();prepareSequence(false);$('collector').classList.remove('hidden');setStatus('collectStatus',`Coleta iniciada para ${listId()}. O supermercado pode ser alterado produto a produto.`,'ok');
+ const market=$('supermarket').value.trim();
+ if(market){const c=ensureCollection(market);currentKey=c.key;saveDb()}else{currentKey=''}
+ prepareSequence(false);$('collector').classList.remove('hidden');setStatus('collectStatus',`Coleta iniciada. Referência automática: ${listId()}. Selecione ou digite o supermercado para registrar cada preço.`,'ok');
 });
 function prepareSequence(resume){
- const c=collection();if(!c){setStatus('collectStatus','Selecione um supermercado e inicie a coleta.','err');return}
- let ids=products.map(p=>p.id);if($('order').value==='pending'){ids.sort((a,b)=>{const pa=c.prices[a]?.status==='done'||c.prices[a]?.status==='unavailable',pb=c.prices[b]?.status==='done'||c.prices[b]?.status==='unavailable';return Number(pa)-Number(pb)})}
+ const c=collection();
+ let ids=products.map(p=>p.id);if($('order').value==='pending'){ids.sort((a,b)=>{const pa=c?.prices?.[a]?.status==='done'||c?.prices?.[a]?.status==='unavailable',pb=c?.prices?.[b]?.status==='done'||c?.prices?.[b]?.status==='unavailable';return Number(pa)-Number(pb)})}else if($('order').value==='description'){ids.sort((a,b)=>{const pa=products.find(p=>p.id===a),pb=products.find(p=>p.id===b);return String(pa?.name||'').localeCompare(String(pb?.name||''),'pt-BR',{sensitivity:'base',numeric:true})})}
  sequence=ids;seqPos=0;
- if(resume){const firstPending=sequence.findIndex(id=>!['done','unavailable'].includes(c.prices[id]?.status));seqPos=firstPending>=0?firstPending:0}
+ if(resume){const firstPending=sequence.findIndex(id=>!['done','unavailable'].includes(c?.prices?.[id]?.status));seqPos=firstPending>=0?firstPending:0}
  currentProductId=sequence[seqPos];$('collector').classList.remove('hidden');renderCurrent();renderProductTable();saveDb();
 }
 function renderCurrent(){
- const c=collection();if(!c||!products.length)return;
+ const c=collection();if(!products.length)return;
  if(seqPos<0)seqPos=0;if(seqPos>=sequence.length)seqPos=sequence.length-1;
  currentProductId=sequence[seqPos];const p=products.find(x=>x.id===currentProductId);if(!p)return;
  const selectedMarket=$('supermarket').value.trim();const selectedCollection=selectedMarket?db.collections[colId(selectedMarket,listId())]:c;const record=selectedCollection?.prices?.[p.id];$('position').textContent=(seqPos+1)+'/'+sequence.length;
- const done=Object.values(c.prices).filter(x=>['done','unavailable'].includes(x.status)).length;
+ const countCollection=selectedCollection||c;const done=Object.values(countCollection?.prices||{}).filter(x=>['done','unavailable'].includes(x.status)).length;
  $('doneCount').textContent=done;$('pendingCount').textContent=Math.max(0,products.length-done);$('progressBar').style.width=(products.length?done/products.length*100:0)+'%';
  $('productName').textContent=p.name||'(Sem descrição)';$('productCategory').textContent='Categoria: '+(p.category||'Não informada');$('productEan').textContent=p.ean||'(Sem EAN)';$('skuUnit').textContent='SKU: '+(p.sku||'—')+' · Unidade: '+(p.unit||'—');$('ownPrice').textContent='Preço da sua loja: '+brl(p.own);
- $('marketPrice').value=record?.status==='done'&&record.price!==null?Number(record.price).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+ $('marketPrice').value=record?.status==='done'&&record.price!==null?String(Math.round(Number(record.price)*100)):'';
  if(typeof JsBarcode==='function'&&p.ean){try{const fmt=/^\d{13}$/.test(p.ean)?'EAN13':/^\d{12}$/.test(p.ean)?'UPC':/^\d{8}$/.test(p.ean)?'EAN8':'CODE128';JsBarcode($('barcode'),p.ean,{format:fmt,width:2.1,height:85,displayValue:false,margin:10});$('barcodeFallback').classList.add('hidden');$('barcode').classList.remove('hidden')}catch(e){$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}}else{$('barcode').innerHTML='';$('barcodeFallback').classList.remove('hidden')}
  $('marketPrice').focus({preventScroll:true});renderProductTable();
 }
@@ -371,7 +369,8 @@ function savePrice(status,price=null){
  c.updated=new Date().toISOString();saveDb();refreshCompare();nextProduct();
 }
 function nextProduct(){if(seqPos<sequence.length-1)seqPos++;renderCurrent()}
-$('confirmPrice').addEventListener('click',()=>{const raw=$('marketPrice').value,price=money(raw);if(price===null||price<0){setStatus('collectStatus','Informe um preço válido, por exemplo 12,38.','err');$('marketPrice').focus();return}savePrice('done',price)});
+$('confirmPrice').addEventListener('click',()=>{const raw=$('marketPrice').value.trim();const digits=raw.replace(/\D/g,'');if(!digits){setStatus('collectStatus','Digite o preço usando apenas números. Ex.: 478 para R$ 4,78.','err');$('marketPrice').focus();return}const price=Number(digits)/100;if(!Number.isFinite(price)||price<0){setStatus('collectStatus','Informe um preço válido usando apenas números.','err');$('marketPrice').focus();return}$('marketPrice').value=digits;savePrice('done',Math.round(price*100)/100)});
+$('marketPrice').addEventListener('input',e=>{const cleaned=e.target.value.replace(/\D/g,'');if(e.target.value!==cleaned)e.target.value=cleaned;});
 $('marketPrice').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('confirmPrice').click()}});
 $('markUnavailable').addEventListener('click',()=>savePrice('unavailable',null));
 $('skipProduct').addEventListener('click',nextProduct);
