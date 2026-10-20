@@ -281,7 +281,7 @@ function importSales(text){
   const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
   products=sortedSales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
   $('salesCount').textContent=products.length;
-  salesListPage=0;$('salesListSearch').value='';$('salesMatchFilter').value='all';$('importPreview').classList.remove('hidden');renderSalesImportList();$('week').value=week;
+  salesListPage=0;$('salesListSearch').value='';$('salesMatchFilter').value='all';$('importPreview').classList.remove('hidden');renderSalesImportList();
   setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro pelo SKU; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.` , unmatched.length ? '' : 'ok');
   renderSaved();refreshCompare();
  }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
