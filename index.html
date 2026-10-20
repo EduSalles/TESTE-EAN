@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132238">
-<title>Pesquisa de Preços v5.4</title>
+<title>Pesquisa de Preços v5.5</title>
 <style>
 #productRows tr.selected-product td{background:#dbeafe!important;border-top:2px solid #155eef;border-bottom:2px solid #155eef}#productRows tr.selected-product td:first-child{box-shadow:inset 5px 0 #155eef}#productRows tr.selected-product{outline:2px solid #155eef;outline-offset:-2px}
 
@@ -28,7 +28,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 </style>
 </head>
 <body>
-<header><div class="top"><div><h1>Pesquisa de Preços <span style="display:inline-block;font-size:.72rem;font-weight:800;background:#155eef;color:#fff;border:1px solid #8fb4ff;border-radius:6px;padding:3px 7px;vertical-align:middle">v5.4</span></h1><small>Cadastro Excel • coleta manual • lista de compras • sincronização central</small></div><span id="headerCount">Sem lista</span></div></header>
+<header><div class="top"><div><h1>Pesquisa de Preços <span style="display:inline-block;font-size:.72rem;font-weight:800;background:#155eef;color:#fff;border:1px solid #8fb4ff;border-radius:6px;padding:3px 7px;vertical-align:middle">v5.5</span></h1><small>Cadastro Excel • coleta manual • lista de compras • sincronização central</small></div><span id="headerCount">Sem lista</span></div></header>
 <main>
 <nav class="tabs" aria-label="Seções">
 <button class="tab active" data-tab="import">1. Importar arquivos</button>
@@ -352,7 +352,7 @@ function renderProductTable(){
  const market=$('supermarket').value.trim(),c=market?db.collections[colId(market,listId())]:null,q=norm($('searchProducts').value);const filtered=products.filter(p=>!q||norm([p.ean,p.name,p.category].join(' ')).includes(q));
  filtered.sort((a,b)=>{let av,bv;const ra=c?.prices?.[a.id],rb=c?.prices?.[b.id];switch(tableSort.key){case'status':av=ra?.status||'';bv=rb?.status||'';break;case'price':av=ra?.price??Infinity;bv=rb?.price??Infinity;break;default:av=a[tableSort.key]??'';bv=b[tableSort.key]??'';}if(typeof av==='number'&&typeof bv==='number')return(av-bv)*tableSort.direction;return String(av).localeCompare(String(bv),'pt-BR',{numeric:true,sensitivity:'base'})*tableSort.direction});
  collectFilteredCount=filtered.length;const pages=Math.max(1,Math.ceil(filtered.length/collectPageSize));collectPage=Math.min(Math.max(1,collectPage),pages);const visible=filtered.slice((collectPage-1)*collectPageSize,collectPage*collectPageSize);
- $('productRows').innerHTML=visible.map(p=>{const r=c?.prices?.[p.id],done=['done','unavailable'].includes(r?.status);return `<tr data-row-id="${esc(p.id)}" class="${p.id===currentProductId?'selected-product':''}"><td><span class="tag ${done?'done':'pending'}">${r?.status==='unavailable'?'Indisponível':done?'Coletado':'Pendente'}</span></td><td><button class="secondary" style="min-height:30px;padding:3px 6px" data-ean="${esc(p.ean)}" data-name="${esc(p.name)}">${esc(p.ean||'—')}</button></td><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td class="num">${Number(p.quantity??0).toLocaleString('pt-BR')}</td><td class="num">${brl(p.own)}</td><td class="num">${r?.status==='done'?brl(r.price):'—'}</td><td><button style="min-height:34px;padding:5px 9px" data-go="${esc(p.id)}">Coletar</button></td></tr>`}).join('');
+ $('productRows').innerHTML=visible.map(p=>{const r=c?.prices?.[p.id],done=r?.status==='done';return `<tr data-row-id="${esc(p.id)}" class="${p.id===currentProductId?'selected-product':''}"><td><span class="tag ${done?'done':'pending'}">${done?'Precificado':'Pendente'}</span></td><td><button class="secondary" style="min-height:30px;padding:3px 6px" data-ean="${esc(p.ean)}" data-name="${esc(p.name)}">${esc(p.ean||'—')}</button></td><td>${esc(p.name)}</td><td>${esc(p.category||'')}</td><td class="num">${Number(p.quantity??0).toLocaleString('pt-BR')}</td><td class="num">${brl(p.own)}</td><td class="num">${r?.status==='done'?brl(r.price):'—'}</td><td><button style="min-height:34px;padding:5px 9px" data-go="${esc(p.id)}">Coletar</button></td></tr>`}).join('');
  $('productRows').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>openCollectorFor(b.dataset.go));$('productRows').querySelectorAll('[data-ean]').forEach(b=>b.onclick=()=>{const p=products.find(x=>String(x.ean||'')===b.dataset.ean);if(p)openCollectorFor(p.id)});$('collectPageInfo').textContent=`Página ${collectPage} de ${pages} · ${filtered.length} produtos`;$('collectPrevPage').disabled=collectPage<=1;$('collectNextPage').disabled=collectPage>=pages;
 }
 $('collectPrevPage').addEventListener('click',()=>{collectPage=Math.max(1,collectPage-1);renderProductTable()});$('collectNextPage').addEventListener('click',()=>{collectPage++;renderProductTable()});$('collectPageSize').addEventListener('change',e=>{collectPageSize=Number(e.target.value)||25;collectPage=1;renderProductTable()});
@@ -366,7 +366,7 @@ function renderShoppingList(showFeedback=false){
  Object.values(db.collections||{}).forEach(c=>{
   if(c.listId&&activeListId&&c.listId!==activeListId)return;
   Object.entries(c.prices||{}).forEach(([pid,r])=>{
-   if(!r||!['done','unavailable'].includes(r.status))return;
+   if(!r||r.status!=='done')return;
    const p=listProducts.find(x=>x.id===pid)||pmap.get(skuKey(r.sku));
    if(!p)return;
    allRows.push({p,market:r.market||c.market||'',price:r.price,status:r.status,updated:r.updated||'',week:r.week||c.week||''});
@@ -387,7 +387,7 @@ function renderShoppingList(showFeedback=false){
  $('shoppingPageInfo').textContent=`Página ${shoppingPage+1} de ${pages} · ${filtered.length} registros com preço/status`;$('shoppingPrev').disabled=shoppingPage===0;$('shoppingNext').disabled=shoppingPage>=pages-1;
  body.querySelectorAll('[data-purchased]').forEach(cb=>cb.addEventListener('change',()=>{db.shoppingPurchased=db.shoppingPurchased||{};db.shoppingPurchased[cb.dataset.purchased]=cb.checked;saveDb();renderShoppingList()}));
  head.querySelectorAll('[data-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;if(shoppingSort.key===k)shoppingSort.dir*=-1;else{shoppingSort.key=k;shoppingSort.dir=1}renderShoppingList()});
- const msg=filtered.length?`${filtered.length} produtos precificados ou marcados como indisponíveis · ${markets.length} supermercados.`:'Nenhum produto precificado encontrado para os filtros selecionados.';
+ const msg=filtered.length?`${filtered.length} produtos precificados · ${markets.length} supermercados.`:'Nenhum produto precificado encontrado para os filtros selecionados.';
  setStatus('compareStatus',msg,filtered.length?'ok':'');renderSaved();
 }
 function refreshCompare(showFeedback=false){renderShoppingList(showFeedback)}
@@ -396,7 +396,7 @@ $('refreshCompare').addEventListener('click',()=>refreshCompare(true));
 function csvForCollection(c){
  const l=db.lists[c.listId],ps=l?.products||products;
  const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Categoria','Unidade de Medida','Valor de Venda','Quantidade Vendida','Valor Total Vendido','Supermercado','Referência','Preço Coletado','Status','Data/Hora']];
- ps.forEach(p=>{const r=c.prices?.[p.id];rows.push([p.sku,p.ean,p.name,p.category||'',p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),c.market,c.week,r?.price===null||r?.price===undefined?'':Number(r.price).toFixed(2).replace('.',','),r?.status==='done'?'Coletado':r?.status==='unavailable'?'Indisponível':'Pendente',r?.updated||''])});
+ ps.forEach(p=>{const r=c.prices?.[p.id];rows.push([p.sku,p.ean,p.name,p.category||'',p.unit,p.own===null?'':Number(p.own).toFixed(2).replace('.',','),p.quantity??'',p.salesValue===null||p.salesValue===undefined?'':Number(p.salesValue).toFixed(2).replace('.',','),c.market,c.week,r?.price===null||r?.price===undefined?'':Number(r.price).toFixed(2).replace('.',','),r?.status==='done'?'Precificado':'Pendente',r?.updated||''])});
  return rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
 }
 $('exportSingle').addEventListener('click',()=>{const market=$('exportMarket').value,week=$('exportWeek').value,c=Object.values(db.collections).find(x=>x.market===market&&x.week===week);if(!c){setStatus('compareStatus','Não encontrei coleta para essa seleção.','err');return}download(`precos_${slug(market)}_${slug(week)}.csv`,csvForCollection(c))});
@@ -424,7 +424,7 @@ $('exportComparePdf').addEventListener('click',()=>{
 $('exportCompare').addEventListener('click',()=>{
  const rows=[['Código (SKU)','Código de Barras','Nome do Produto','Categoria','Quantidade','Supermercado','Preço Encontrado','Referência','Data/Hora','Status','Comprado']];
  const activeListId=db.activeList;const listProducts=(db.lists[activeListId]?.products)||products||[];
- Object.values(db.collections||{}).forEach(c=>{if(c.listId&&activeListId&&c.listId!==activeListId)return;Object.entries(c.prices||{}).forEach(([pid,r])=>{if(!r||!['done','unavailable'].includes(r.status))return;const p=listProducts.find(x=>x.id===pid)||listProducts.find(x=>skuKey(x.sku)===skuKey(r.sku));if(!p)return;const mf=$('shoppingMarketFilter').value;if(mf&&(r.market||c.market)!==mf)return;rows.push([p.sku,p.ean,p.name,p.category||'',p.quantity??'',r.market||c.market||'',r.status==='done'?Number(r.price).toFixed(2).replace('.',','):'',r.week||c.week||'',r.updated||'',r.status==='done'?'Precificado':'Indisponível',db.shoppingPurchased?.[(activeListId||'')+'|'+skuKey(p.sku)]?'Sim':'Não'])})});
+ Object.values(db.collections||{}).forEach(c=>{if(c.listId&&activeListId&&c.listId!==activeListId)return;Object.entries(c.prices||{}).forEach(([pid,r])=>{if(!r||r.status!=='done')return;const p=listProducts.find(x=>x.id===pid)||listProducts.find(x=>skuKey(x.sku)===skuKey(r.sku));if(!p)return;const mf=$('shoppingMarketFilter').value;if(mf&&(r.market||c.market)!==mf)return;rows.push([p.sku,p.ean,p.name,p.category||'',p.quantity??'',r.market||c.market||'',r.status==='done'?Number(r.price).toFixed(2).replace('.',','):'',r.week||c.week||'',r.updated||'',r.status==='done'?'Precificado':'Indisponível',db.shoppingPurchased?.[(activeListId||'')+'|'+skuKey(p.sku)]?'Sim':'Não'])})});
  download(`lista_compras_${new Date().toISOString().slice(0,10)}.csv`,rows.map(r=>r.map(csvCell).join(';')).join('\r\n'));
 });
 function showBarcodeFullscreen(ean,name){
