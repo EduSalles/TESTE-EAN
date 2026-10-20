@@ -60,6 +60,7 @@ button{border:0;border-radius:10px;min-height:46px;padding:11px 14px;font-weight
 <label for="csvFile">Selecionar relatório semanal .CSV</label><input type="file" id="csvFile" accept=".csv,text/csv,text/plain">
 <button id="importSalesBtn" style="margin-top:8px;width:100%">Processar relatório CSV</button>
 <div id="importStatus" class="status">Nenhum relatório semanal importado.</div>
+<div id="lastCsvInfo" class="status" style="background:#f0f7ff;border-color:#bfdbfe;color:#1e40af">O último relatório CSV será armazenado neste navegador após a importação.</div>
 <div id="importPreview" class="hidden" style="margin-top:14px">
 <h3>Produtos importados do relatório</h3>
 <p class="muted">Clique nos títulos das colunas para ordenar. Use os filtros para localizar produtos e conferir a correspondência pelo SKU.</p>
@@ -106,6 +107,12 @@ const PAGE_SIZE=50; let catalogPage=0,catalogSort={key:'name',dir:1},salesListPa
 
 function loadDb(){try{return JSON.parse(localStorage.getItem(STORE))||{lists:{},collections:{}}}catch(e){return {lists:{},collections:{}}}}
 function saveDb(){localStorage.setItem(STORE,JSON.stringify(db));renderSaved();$('headerCount').textContent=products.length?products.length+' produtos':'Sem lista'}
+// Mantém o arquivo CSV original no IndexedDB, separado dos dados da aplicação.
+const CSV_DB_NAME='pesquisa_precos_arquivos_v1', CSV_STORE='ultimo_csv';
+function openCsvDb(){return new Promise((resolve,reject)=>{if(!('indexedDB' in window)){reject(new Error('IndexedDB não está disponível neste navegador.'));return}const req=indexedDB.open(CSV_DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(CSV_STORE))req.result.createObjectStore(CSV_STORE,{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Não foi possível abrir o armazenamento do CSV.'))})}
+async function saveLastCsv(name,content){const database=await openCsvDb();try{await new Promise((resolve,reject)=>{const tx=database.transaction(CSV_STORE,'readwrite');tx.objectStore(CSV_STORE).put({id:'last',name,content,importedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('Falha ao armazenar CSV.'));tx.onabort=()=>reject(tx.error||new Error('Armazenamento do CSV cancelado.'))})}finally{database.close()}renderLastCsvInfo({name,importedAt:new Date().toISOString()})}
+async function loadLastCsv(){const database=await openCsvDb();try{return await new Promise((resolve,reject)=>{const tx=database.transaction(CSV_STORE,'readonly'),req=tx.objectStore(CSV_STORE).get('last');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error||new Error('Não foi possível recuperar o CSV.'))})}finally{database.close()}}
+function renderLastCsvInfo(file){const el=$('lastCsvInfo');if(!file){el.textContent='O último relatório CSV será armazenado neste navegador após a importação.';return}const dt=file.importedAt?new Date(file.importedAt).toLocaleString('pt-BR'):'data não disponível';el.textContent=`Último relatório armazenado: ${file.name} · importado em ${dt}. O arquivo será mantido neste navegador até a próxima importação.`}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
 function parseCSV(text){
  text=String(text||'').replace(/^\uFEFF/,'').trim(); if(!text)throw Error('O conteúdo está vazio.');
@@ -292,7 +299,7 @@ $('masterFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)set
 $('csvFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('importStatus',`Arquivo selecionado: ${f.name}. Clique em “Processar relatório CSV”.`)});
 $('importMasterBtn').addEventListener('click',async()=>{const f=$('masterFile').files[0];if(!f){setStatus('masterStatus','Selecione primeiro o arquivo JSON.','err');return}setStatus('masterStatus','Lendo e validando o cadastro JSON...');try{importMaster(await f.text())}catch(err){setStatus('masterStatus','Erro ao ler o JSON: '+(err.message||err),'err')}});
 $('salesListSearch').addEventListener('input',()=>{salesListPage=0;renderSalesImportList()});$('salesMatchFilter').addEventListener('change',()=>{salesListPage=0;renderSalesImportList()});$('salesListPrev').addEventListener('click',()=>{salesListPage=Math.max(0,salesListPage-1);renderSalesImportList()});$('salesListNext').addEventListener('click',()=>{salesListPage++;renderSalesImportList()});
-$('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}setStatus('importStatus','Lendo e processando o relatório CSV...');try{importSales(await f.text())}catch(err){setStatus('importStatus','Erro ao ler o CSV: '+(err.message||err),'err')}});
+$('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}setStatus('importStatus','Lendo, armazenando e processando o relatório CSV...');try{const content=await f.text();if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');await saveLastCsv(f.name,content);importSales(content)}catch(err){setStatus('importStatus','Erro ao ler ou armazenar o CSV: '+(err.message||err),'err')}});
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='collect')renderProductTable();if(t==='compare')refreshCompare();if(t==='import'){renderSaved();if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList()}}
 function renderSaved(){
@@ -444,6 +451,7 @@ $('backupFile').addEventListener('change',async e=>{const f=e.target.files[0];if
 window.addEventListener('load',()=>{
  if(db.masterCatalog?.length){$('masterCount').textContent=db.masterCatalog.length;$('masterIssues').textContent=db.masterCatalog.filter(p=>!p.ean||!p.name||p.own===null).length;setStatus('masterStatus',`Cadastro recuperado: ${db.masterCatalog.length} produtos.`,'ok')} if(db.activeList&&db.lists[db.activeList]){products=db.lists[db.activeList].products;$('salesCount').textContent=products.length;$('importPreview').classList.remove('hidden');renderSalesImportList();setStatus('importStatus',`Lista recuperada: ${products.length} produtos.`,'ok')}
  renderSaved();refreshCompare();
+ loadLastCsv().then(file=>renderLastCsvInfo(file)).catch(()=>{ $('lastCsvInfo').textContent='Não foi possível acessar o armazenamento persistente do CSV neste navegador.'; });
  if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList();
  checkCentralCatalog();
 });
