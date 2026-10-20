@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132238">
-<title>Pesquisa de Preços v3.8 - Coleta rápida</title>
+<title>Pesquisa de Preços v4.2 - Coleta restaurada</title>
 <style>
 :root{--navy:#132238;--blue:#155eef;--pale:#eef4ff;--green:#067647;--red:#b42318;--border:#d6deea;--muted:#5d6b82}
 *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#172033;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -309,8 +309,8 @@ function ensureCollection(market,week=listId()){
 }
 let tableSort={key:'name',direction:1};
 function prepareSequence(resume){const c=collection();sequence=products.map(p=>p.id).sort((a,b)=>String(products.find(p=>p.id===a)?.name||'').localeCompare(String(products.find(p=>p.id===b)?.name||''),'pt-BR',{sensitivity:'base',numeric:true}));seqPos=Math.max(0,sequence.indexOf(currentProductId));if(resume){const firstPending=sequence.findIndex(id=>!['done','unavailable'].includes(c?.prices?.[id]?.status));seqPos=firstPending>=0?firstPending:0}currentProductId=sequence[seqPos];renderCurrent();renderProductTable();}
-function openCollectorFor(id){if(!products.length){setStatus('collectStatus','Importe primeiro o relatório semanal CSV.','err');return}currentProductId=id;sequence=products.map(p=>p.id).sort((a,b)=>String(products.find(p=>p.id===a)?.name||'').localeCompare(String(products.find(p=>p.id===b)?.name||''),'pt-BR',{sensitivity:'base',numeric:true}));seqPos=sequence.indexOf(id);$('collector').classList.remove('hidden');renderCurrent();$('collector').scrollIntoView({behavior:'smooth',block:'start'});}
-$('supermarket').addEventListener('input',renderProductTable);$('supermarket').addEventListener('change',()=>{renderProductTable();setStatus('collectStatus',`Exibindo preços de ${$('supermarket').value.trim()||'todos os supermercados'}. Referência: ${listId()}.`,'ok')});
+function openCollectorFor(id){if(!products.length){setStatus('collectStatus','Importe primeiro o relatório semanal CSV.','err');return}showTab('collect');currentProductId=id;sequence=products.map(p=>p.id).sort((a,b)=>String(products.find(p=>p.id===a)?.name||'').localeCompare(String(products.find(p=>p.id===b)?.name||''),'pt-BR',{sensitivity:'base',numeric:true}));seqPos=sequence.indexOf(id);$('collector').classList.remove('hidden');renderCurrent();$('collector').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>{if(!$('supermarket').value.trim())$('supermarket').focus();else $('marketPrice').focus({preventScroll:true})},120);}
+$('supermarket').addEventListener('input',()=>{renderProductTable();if(!$('collector').classList.contains('hidden'))renderCurrent()});$('supermarket').addEventListener('change',()=>{renderProductTable();if(!$('collector').classList.contains('hidden'))renderCurrent();setStatus('collectStatus',`Supermercado selecionado: ${$('supermarket').value.trim()||'nenhum'}. Referência: ${listId()}.`,$('supermarket').value.trim()?'ok':'')});
 function renderCurrent(){
  const c=collection();if(!products.length)return;
  if(seqPos<0)seqPos=0;if(seqPos>=sequence.length)seqPos=sequence.length-1;
