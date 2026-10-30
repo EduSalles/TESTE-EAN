@@ -253,7 +253,20 @@ function renderSalesImportList(){
  $('salesListHead').querySelectorAll('[data-sales-sort]').forEach(th=>th.onclick=()=>{const k=th.dataset.salesSort;if(salesListSort.key===k)salesListSort.dir*=-1;else{salesListSort.key=k;salesListSort.dir=['quantity','salesValue','own'].includes(k)?-1:1}renderSalesImportList()});
 }
 
-function importSales(text){
+function activeListCollectedRecords(){
+ const activeList=db.activeList;
+ return Object.values(db.collections||{}).filter(c=>!c.listId||!activeList||c.listId===activeList)
+  .reduce((total,c)=>total+Object.values(c.prices||{}).filter(r=>r&&['done','unavailable'].includes(r.status)).length,0);
+}
+function clearActiveListCollectedPrices(){
+ const activeList=db.activeList;
+ Object.values(db.collections||{}).forEach(c=>{
+  if(!c.listId||!activeList||c.listId===activeList){
+   c.prices={};c.updated=new Date().toISOString();
+  }
+ });
+}
+function importSales(text,clearPreviousPrices=false){
  try{
   if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');
   const parsed=parseCSV(text),headers=parsed.headers;
@@ -287,6 +300,8 @@ function importSales(text){
     if(!master)unmatched.push(sku);
   });
   if(!sales.length)throw Error('Nenhum produto válido foi encontrado no CSV.');
+  // A exclusão só ocorre depois que o CSV foi validado e contém produtos válidos.
+  if(clearPreviousPrices)clearActiveListCollectedPrices();
   const sortedSales=sortByQuantityDesc(sales);
   const week=new Date().toISOString().slice(0,10),id='lista_'+slug(week)+'_'+Date.now();
   products=sortedSales;db.lists[id]={id,week,created:new Date().toISOString(),products};db.activeList=id;saveDb();
@@ -294,13 +309,18 @@ function importSales(text){
   salesListPage=0;$('salesListSearch').value='';$('salesMatchFilter').value='all';$('importPreview').classList.remove('hidden');renderSalesImportList();
   setStatus('importStatus',`Importação concluída: ${products.length} produtos vendidos; ${products.length-unmatched.length} identificados no cadastro pelo SKU; ${unmatched.length} sem correspondência. Linhas "---" e "Total:" ignoradas.` , unmatched.length ? '' : 'ok');
   renderSaved();refreshCompare();
- }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err')}
+  return true;
+ }catch(e){setStatus('importStatus',e.message||'Falha ao importar CSV.','err');return false}
 }
 $('masterFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('masterStatus',`Arquivo selecionado: ${f.name}. Clique em “Importar cadastro JSON”.`)});
 $('csvFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)setStatus('importStatus',`Arquivo selecionado: ${f.name}. Clique em “Processar relatório CSV”.`)});
 $('importMasterBtn').addEventListener('click',async()=>{const f=$('masterFile').files[0];if(!f){setStatus('masterStatus','Selecione primeiro o arquivo JSON.','err');return}setStatus('masterStatus','Lendo e validando o cadastro JSON...');try{importMaster(await f.text())}catch(err){setStatus('masterStatus','Erro ao ler o JSON: '+(err.message||err),'err')}});
 $('salesListSearch').addEventListener('input',()=>{salesListPage=0;renderSalesImportList()});$('salesMatchFilter').addEventListener('change',()=>{salesListPage=0;renderSalesImportList()});$('salesListPrev').addEventListener('click',()=>{salesListPage=Math.max(0,salesListPage-1);renderSalesImportList()});$('salesListNext').addEventListener('click',()=>{salesListPage++;renderSalesImportList()});
-$('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}setStatus('importStatus','Lendo, armazenando e processando o relatório CSV...');try{const content=await f.text();if(!db.masterCatalog?.length)throw Error('Importe primeiro o cadastro JSON do ConnectPlug.');await saveLastCsv(f.name,content);importSales(content)}catch(err){setStatus('importStatus','Erro ao ler ou armazenar o CSV: '+(err.message||err),'err')}});
+$('importSalesBtn').addEventListener('click',async()=>{const f=$('csvFile').files[0];if(!f){setStatus('importStatus','Selecione primeiro o arquivo CSV.','err');return}if(!db.masterCatalog?.length){setStatus('importStatus','Importe primeiro o cadastro JSON do ConnectPlug.','err');return}const collectedCount=activeListCollectedRecords();let clearPreviousPrices=false;if(collectedCount>0){const ok=confirm(`Atenção: existem ${collectedCount} preço(s) coletado(s) na lista atual.
+
+Ao processar este novo relatório semanal, esses preços serão excluídos. As pesquisas de semanas anteriores serão preservadas.
+
+Deseja continuar?`);if(!ok){setStatus('importStatus','Importação cancelada. Os preços coletados foram preservados.');return}clearPreviousPrices=true}setStatus('importStatus','Lendo e processando o relatório CSV...');try{const content=await f.text();const imported=importSales(content,clearPreviousPrices);if(imported)await saveLastCsv(f.name,content)}catch(err){setStatus('importStatus','Erro ao ler ou armazenar o CSV: '+(err.message||err),'err')}});
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 function showTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));['import','collect','compare'].forEach(x=>$('view-'+x).classList.toggle('hidden',x!==t));if(t==='collect')renderProductTable();if(t==='compare')refreshCompare();if(t==='import'){renderSaved();if(!$('catalogListCard').classList.contains('hidden'))renderCatalogList()}}
 function renderSaved(){
