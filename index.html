@@ -325,7 +325,10 @@ function renderCurrent(){
  const c=collection();if(!products.length)return;
  if(seqPos<0)seqPos=0;if(seqPos>=sequence.length)seqPos=sequence.length-1;
  currentProductId=sequence[seqPos];const p=products.find(x=>x.id===currentProductId);if(!p)return;
- const selectedMarket=$('collectorMarket').value.trim()||$('supermarket').value.trim();const selectedCollection=selectedMarket?db.collections[colId(selectedMarket,listId())]:c;const record=selectedCollection?.prices?.[p.id];$('position').textContent=(seqPos+1)+'/'+sequence.length;
+ const selectedMarket=$('collectorMarket').value.trim()||$('supermarket').value.trim();const selectedCollection=selectedMarket?db.collections[colId(selectedMarket,listId())]:c;const record=selectedCollection?.prices?.[p.id];
+ // Ao reabrir um produto já precificado, recupera o supermercado e o preço registrados.
+ $('collectorMarket').value=record?.market||selectedMarket||'';
+ $('position').textContent=(seqPos+1)+'/'+sequence.length;
  const countCollection=selectedCollection||c;const done=Object.values(countCollection?.prices||{}).filter(x=>['done','unavailable'].includes(x.status)).length;
  $('doneCount').textContent=done;$('pendingCount').textContent=Math.max(0,products.length-done);$('progressBar').style.width=(products.length?done/products.length*100:0)+'%';
  $('productName').textContent=p.name||'(Sem descrição)';$('productCategory').textContent='Categoria: '+(p.category||'Não informada');$('productEan').textContent=p.ean||'(Sem EAN)';$('ownPrice').textContent='Preço da sua loja: '+brl(p.own);
